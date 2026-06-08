@@ -1,1355 +1,644 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-89NN1P6CEV"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-89NN1P6CEV');
-  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>360 — Mail</title>
-  <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#3b82f6" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="360" />
-  <link rel="icon" type="image/png" href="/favicon-32x32.png" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <link rel="stylesheet" href="/assets/css/main.css" />
-  <link rel="stylesheet" href="/assets/css/wide.css" />
-  <link rel="stylesheet" href="/assets/css/cursor.css" />
-  <link rel="stylesheet" href="/assets/css/responsive.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
+  <title>360 Mail — Email by 360</title>
   <style>
-    /* ── Glass vars (same as chat.css) ── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
     :root {
-      --glass-bg:            rgba(255,255,255,.50);
-      --glass-bg-hover:      rgba(255,255,255,.72);
-      --glass-bg-strong:     rgba(255,255,255,.65);
-      --glass-border:        rgba(0,0,0,.07);
-      --glass-border-strong: rgba(0,0,0,.13);
-      --glass-shadow:        0 4px 24px rgba(0,0,0,.07), 0 1px 4px rgba(0,0,0,.05);
-      --glass-blur:          blur(16px) saturate(160%);
-      --glass-blur-sm:       blur(8px)  saturate(140%);
-    }
-    body.dark {
-      --glass-bg:            rgba(15,23,42,.50);
-      --glass-bg-hover:      rgba(30,41,59,.60);
-      --glass-bg-strong:     rgba(10,18,35,.70);
-      --glass-border:        rgba(255,255,255,.09);
-      --glass-border-strong: rgba(255,255,255,.16);
-      --glass-shadow:        0 8px 40px rgba(0,0,0,.45), 0 1.5px 8px rgba(0,0,0,.30);
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #1a1a1a;
+      --border: rgba(255,255,255,0.08);
+      --border-hover: rgba(255,255,255,0.15);
+      --text: #f0f0f0;
+      --muted: #888;
+      --accent: #4f8ef7;
+      --accent-dim: rgba(79,142,247,0.12);
+      --accent-hover: #6aa0f9;
+      --radius: 12px;
+      --radius-sm: 8px;
     }
 
-    body:not(.dark) { background: #f5f6f8; }
-    body.dark {
-      background: linear-gradient(135deg,#0f172a 0%,#1e1b4b 35%,#0c4a6e 70%,#0f172a 100%);
-      background-attachment: fixed;
-    }
-    body.dark::before {
-      content:"";
-      position:fixed; inset:0;
-      background:
-        radial-gradient(ellipse 80% 60% at 20% 20%,rgba(99,102,241,.18) 0%,transparent 60%),
-        radial-gradient(ellipse 60% 80% at 80% 80%,rgba(14,165,233,.15) 0%,transparent 60%);
-      pointer-events:none; z-index:0;
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
     }
 
-    /* ── Root layout ── */
-    .mail-root {
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-      position: relative;
-      z-index: 1;
-      padding-top: 48px; /* room for sidebar-toggle */
-    }
-
-    /* ── Left panel: folder list ── */
-    .mail-left {
-      width: 200px;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      background: var(--glass-bg-strong);
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
-      border-right: 1px solid var(--glass-border);
-      padding: 12px 0 12px;
-      overflow-y: auto;
-      z-index: 10;
-      box-shadow: var(--glass-shadow);
-    }
-    .mail-left::-webkit-scrollbar { width: 4px; }
-    .mail-left::-webkit-scrollbar-track { background: transparent; }
-    .mail-left::-webkit-scrollbar-thumb { background: var(--glass-border-strong); border-radius:999px; }
-
-    .mail-compose-btn {
-      margin: 0 10px 14px;
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: none;
-      background: linear-gradient(110deg, var(--a), var(--a2));
-      color: #050816;
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
+    /* NAV */
+    nav {
       display: flex;
       align-items: center;
-      gap: 7px;
-      transition: opacity .18s, transform .15s;
-      box-shadow: 0 4px 14px rgba(59,130,246,.28);
+      justify-content: space-between;
+      padding: 1.25rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,10,0.85);
+      backdrop-filter: blur(12px);
+      z-index: 100;
     }
-    .mail-compose-btn:hover { opacity:.87; transform:translateY(-1px); }
-
-    .folder-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      color: var(--mut);
-      padding: 8px 16px 4px;
-    }
-    body.dark .folder-label { color: var(--mutd); }
-
-    .folder-item {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 8px 14px;
-      margin: 1px 8px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      color: var(--txt);
-      transition: .15s;
-      border: 1px solid transparent;
-    }
-    body.dark .folder-item { color: var(--txtd); }
-    .folder-item:hover {
-      background: var(--glass-bg-hover);
-      backdrop-filter: var(--glass-blur-sm);
-      border-color: var(--glass-border);
-    }
-    .folder-item.active {
-      background: linear-gradient(110deg, var(--a), var(--a2));
-      color: #050816 !important;
+    .nav-logo {
+      font-size: 1.1rem;
       font-weight: 600;
-      box-shadow: 0 4px 14px rgba(59,130,246,.25);
+      letter-spacing: -0.02em;
+      color: var(--text);
+      text-decoration: none;
     }
-    .folder-item .fi-icon { font-size: 15px; }
-    .folder-item .fi-name { flex: 1; }
-    .folder-badge {
-      min-width: 18px; height: 18px;
-      border-radius: 999px;
-      background: var(--a);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 5px;
+    .nav-logo span { color: var(--accent); }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
     }
-    .folder-item.active .folder-badge {
-      background: rgba(5,8,22,.25);
-      color: #050816;
-    }
+    nav a:hover { color: var(--text); }
 
-    .mail-address-pill {
-      margin: 8px 10px 0;
-      padding: 7px 10px;
-      border-radius: 8px;
-      background: rgba(59,130,246,.08);
-      border: 1px solid rgba(59,130,246,.18);
-      font-size: 11px;
-      color: var(--a);
-      font-weight: 600;
-      text-align: center;
-      word-break: break-all;
-      line-height: 1.4;
-    }
-    body.dark .mail-address-pill { background: rgba(59,130,246,.12); }
-
-    /* ── Middle panel: email list ── */
-    .mail-list-panel {
-      width: 320px;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      background: var(--glass-bg);
-      backdrop-filter: var(--glass-blur-sm);
-      -webkit-backdrop-filter: var(--glass-blur-sm);
-      border-right: 1px solid var(--glass-border);
-      overflow: hidden;
-    }
-
-    .mail-list-header {
-      padding: 12px 16px 10px;
-      border-bottom: 1px solid var(--glass-border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    .mail-list-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--txt);
-      flex: 1;
-    }
-    body.dark .mail-list-title { color: var(--txtd); }
-    .mail-list-count {
-      font-size: 11px;
-      color: var(--mut);
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.15);
-    }
-    body.dark .mail-list-count { color: var(--mutd); }
-
-    .mail-search-bar {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--glass-border);
-      flex-shrink: 0;
-    }
-    .mail-search-bar input {
-      width: 100%;
-      padding: 7px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--glass-border-strong);
-      background: var(--glass-bg-hover);
-      color: var(--txt);
-      font-size: 13px;
-      outline: none;
-      transition: border-color .18s, box-shadow .18s;
-    }
-    body.dark .mail-search-bar input { color: var(--txtd); background: rgba(255,255,255,.06); }
-    .mail-search-bar input:focus {
-      border-color: var(--a);
-      box-shadow: 0 0 0 3px rgba(59,130,246,.12);
-    }
-    .mail-search-bar input::placeholder { color: var(--mut); }
-
-    .mail-list-scroll {
-      flex: 1;
-      overflow-y: auto;
-    }
-    .mail-list-scroll::-webkit-scrollbar { width: 4px; }
-    .mail-list-scroll::-webkit-scrollbar-track { background: transparent; }
-    .mail-list-scroll::-webkit-scrollbar-thumb { background: var(--glass-border-strong); border-radius:999px; }
-
-    .mail-item {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--glass-border);
-      cursor: pointer;
-      transition: background .15s;
-      position: relative;
-    }
-    .mail-item:hover { background: var(--glass-bg-hover); }
-    .mail-item.active { background: rgba(59,130,246,.08); }
-    body.dark .mail-item.active { background: rgba(59,130,246,.12); }
-    .mail-item.unread .mi-subject { font-weight: 700; }
-    .mail-item.unread::before {
-      content: "";
-      position: absolute;
-      left: 5px; top: 50%;
-      transform: translateY(-50%);
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--a);
-    }
-
-    .mi-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-    .mi-from {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--txt);
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    body.dark .mi-from { color: var(--txtd); }
-    .mi-time { font-size: 11px; color: var(--mut); flex-shrink: 0; }
-    body.dark .mi-time { color: var(--mutd); }
-    .mi-subject {
-      font-size: 13px;
-      color: var(--txt);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      margin-bottom: 2px;
-    }
-    body.dark .mi-subject { color: var(--txtd); }
-    .mi-preview {
-      font-size: 12px;
-      color: var(--mut);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    body.dark .mi-preview { color: var(--mutd); }
-
-    .mi-star {
-      position: absolute;
-      right: 12px;
-      top: 12px;
-      font-size: 13px;
-      opacity: 0;
-      cursor: pointer;
-      transition: opacity .15s, transform .15s;
-      background: none;
-      border: none;
-      padding: 2px;
-      color: var(--mut);
-    }
-    .mail-item:hover .mi-star { opacity: .6; }
-    .mi-star.starred { opacity: 1 !important; color: #f59e0b; }
-    .mi-star:hover { transform: scale(1.2); opacity: 1 !important; }
-
-    .mail-empty {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      gap: 12px;
-      color: var(--mut);
-      padding: 40px 20px;
+    /* HERO */
+    .hero {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 6rem 2rem 4rem;
       text-align: center;
     }
-    body.dark .mail-empty { color: var(--mutd); }
-    .mail-empty-icon { font-size: 44px; opacity: .4; }
-    .mail-empty-text { font-size: 14px; font-weight: 600; opacity: .7; }
-    .mail-empty-sub { font-size: 12px; opacity: .5; }
-
-    /* ── Right panel: reading pane ── */
-    .mail-read-pane {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      background: transparent;
-      overflow: hidden;
-    }
-
-    .mail-read-header {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--glass-border);
-      background: var(--glass-bg-strong);
-      backdrop-filter: var(--glass-blur-sm);
-      -webkit-backdrop-filter: var(--glass-blur-sm);
-      flex-shrink: 0;
-    }
-    .mrh-subject {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--txt);
-      margin-bottom: 8px;
-      line-height: 1.3;
-    }
-    body.dark .mrh-subject { color: var(--txtd); }
-    .mrh-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .mrh-from {
-      font-size: 13px;
-      color: var(--txt);
-      font-weight: 500;
-    }
-    body.dark .mrh-from { color: var(--txtd); }
-    .mrh-addr {
-      font-size: 12px;
-      color: var(--mut);
-    }
-    body.dark .mrh-addr { color: var(--mutd); }
-    .mrh-time {
-      font-size: 12px;
-      color: var(--mut);
-      margin-left: auto;
-    }
-    body.dark .mrh-time { color: var(--mutd); }
-
-    .mail-read-actions {
-      padding: 10px 20px;
-      border-bottom: 1px solid var(--glass-border);
-      display: flex;
-      gap: 8px;
-      background: var(--glass-bg);
-      backdrop-filter: var(--glass-blur-sm);
-      -webkit-backdrop-filter: var(--glass-blur-sm);
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-    .mra-btn {
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--glass-border-strong);
-      background: var(--glass-bg-hover);
-      color: var(--txt);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .15s, transform .12s;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    body.dark .mra-btn { color: var(--txtd); }
-    .mra-btn:hover { background: rgba(148,163,184,.28); transform: translateY(-1px); }
-    .mra-btn.danger { color: #ef4444; border-color: rgba(239,68,68,.25); }
-    .mra-btn.danger:hover { background: rgba(239,68,68,.08); }
-
-    .mail-read-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 24px 28px;
-    }
-    .mail-read-body::-webkit-scrollbar { width: 5px; }
-    .mail-read-body::-webkit-scrollbar-track { background: transparent; }
-    .mail-read-body::-webkit-scrollbar-thumb { background: var(--glass-border-strong); border-radius:999px; }
-
-    .mail-body-html {
-      font-size: 14px;
-      line-height: 1.7;
-      color: var(--txt);
-      max-width: 680px;
-    }
-    body.dark .mail-body-html { color: var(--txtd); }
-    .mail-body-html a { color: var(--a); }
-    .mail-body-html img { max-width: 100%; border-radius: 8px; }
-    .mail-body-html blockquote {
-      border-left: 3px solid var(--a);
-      margin: 12px 0;
-      padding: 6px 14px;
-      background: rgba(59,130,246,.05);
-      border-radius: 0 6px 6px 0;
-      color: var(--mut);
-    }
-
-    .mail-body-plain {
-      font-size: 14px;
-      line-height: 1.7;
-      color: var(--txt);
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-width: 680px;
-      font-family: inherit;
-    }
-    body.dark .mail-body-plain { color: var(--txtd); }
-
-    .mail-no-select {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      gap: 14px;
-      color: var(--mut);
-      text-align: center;
-      padding: 40px;
-    }
-    body.dark .mail-no-select { color: var(--mutd); }
-    .mail-no-select-icon { font-size: 52px; opacity: .25; }
-    .mail-no-select-text { font-size: 15px; font-weight: 600; opacity: .5; }
-
-    /* ── Compose modal ── */
-    .compose-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      align-items: flex-end;
-      justify-content: flex-end;
-      padding: 20px;
-      pointer-events: none;
-    }
-    .compose-modal.open {
-      display: flex;
-      pointer-events: auto;
-    }
-    .compose-box {
-      width: 520px;
-      max-width: calc(100vw - 40px);
-      border-radius: 14px;
-      background: var(--glass-bg-strong);
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
-      border: 1px solid var(--glass-border-strong);
-      box-shadow: 0 24px 80px rgba(0,0,0,.22), 0 4px 16px rgba(0,0,0,.1);
-      display: flex;
-      flex-direction: column;
-      animation: composeIn .22s cubic-bezier(.22,.68,0,1.1);
-      overflow: hidden;
-    }
-    @keyframes composeIn {
-      from { opacity:0; transform: translateY(24px) scale(.97); }
-      to   { opacity:1; transform: translateY(0)    scale(1);   }
-    }
-    .compose-header {
-      display: flex;
-      align-items: center;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--glass-border);
-      background: linear-gradient(110deg, var(--a), var(--a2));
-    }
-    .compose-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: #050816;
-      flex: 1;
-    }
-    .compose-close {
-      background: rgba(5,8,22,.15);
-      border: none;
-      border-radius: 6px;
-      color: #050816;
-      width: 26px; height: 26px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      font-size: 15px;
-      transition: background .15s;
-    }
-    .compose-close:hover { background: rgba(5,8,22,.28); }
-
-    .compose-fields { padding: 10px 16px 0; display: flex; flex-direction: column; gap: 0; }
-    .compose-field {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      border-bottom: 1px solid var(--glass-border);
-      padding: 8px 0;
-    }
-    .compose-field label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-      color: var(--mut);
-      width: 48px;
-      flex-shrink: 0;
-    }
-    body.dark .compose-field label { color: var(--mutd); }
-    .compose-field input {
-      flex: 1;
-      border: none;
-      background: transparent;
-      color: var(--txt);
-      font-size: 13px;
-      outline: none;
-    }
-    body.dark .compose-field input { color: var(--txtd); }
-    .compose-field input::placeholder { color: var(--mut); }
-
-    .compose-body-wrap { padding: 10px 16px; flex: 1; }
-    .compose-body {
-      width: 100%;
-      min-height: 200px;
-      max-height: 340px;
-      border: none;
-      background: transparent;
-      color: var(--txt);
-      font-size: 13px;
-      line-height: 1.7;
-      resize: none;
-      outline: none;
-      font-family: inherit;
-    }
-    body.dark .compose-body { color: var(--txtd); }
-    .compose-body::placeholder { color: var(--mut); }
-
-    .compose-footer {
-      padding: 10px 16px;
-      border-top: 1px solid var(--glass-border);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .compose-send-btn {
-      padding: 8px 20px;
-      border-radius: 8px;
-      border: none;
-      background: linear-gradient(110deg, var(--a), var(--a2));
-      color: #050816;
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-      transition: opacity .18s, transform .15s;
-      display: flex;
+    .badge {
+      display: inline-flex;
       align-items: center;
       gap: 6px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(79,142,247,0.25);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      margin-bottom: 2rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
-    .compose-send-btn:hover:not(:disabled) { opacity: .87; transform: translateY(-1px); }
-    .compose-send-btn:disabled { opacity: .45; cursor: not-allowed; }
-    .compose-status { font-size: 12px; color: var(--mut); }
-    body.dark .compose-status { color: var(--mutd); }
-    .compose-status.err { color: #ef4444; }
-    .compose-status.ok  { color: #10b981; }
-
-    /* ── Skeleton loader ── */
-    .mail-skeleton {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--glass-border);
+    .badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
     }
-    .sk-line {
-      height: 11px;
-      border-radius: 6px;
-      background: rgba(148,163,184,.2);
-      margin-bottom: 7px;
-      animation: skPulse 1.4s ease-in-out infinite;
-    }
-    @keyframes skPulse {
-      0%,100% { opacity:1; }
-      50%      { opacity:.45; }
-    }
-
-    /* ── Sign-in gate ── */
-    .mail-gate {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      gap: 18px;
-      text-align: center;
-      padding: 40px;
-      position: relative;
-      z-index: 2;
-    }
-    .mail-gate-icon { font-size: 56px; }
-    .mail-gate-title { font-size: 22px; font-weight: 800; color: var(--txt); }
-    body.dark .mail-gate-title { color: var(--txtd); }
-    .mail-gate-sub { font-size: 14px; color: var(--mut); max-width: 340px; line-height: 1.5; }
-    body.dark .mail-gate-sub { color: var(--mutd); }
-    .mail-gate-btn {
-      padding: 11px 28px;
-      border-radius: 10px;
-      border: none;
-      background: linear-gradient(110deg, var(--a), var(--a2));
-      color: #050816;
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
       font-weight: 700;
-      font-size: 15px;
-      cursor: pointer;
-      transition: opacity .18s, transform .15s;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
     }
-    .mail-gate-btn:hover { opacity:.87; transform:translateY(-1px); }
+    h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+    .hero-sub {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 560px;
+      margin: 0 auto 3rem;
+      line-height: 1.65;
+    }
 
-    /* ── Confirm modal ── */
-    .confirm-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.45);
-      z-index: 300;
-      align-items: center;
-      justify-content: center;
+    /* CLAIM BOX */
+    .claim-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      max-width: 520px;
+      margin: 0 auto 5rem;
+      text-align: left;
     }
-    .confirm-overlay.open { display: flex; }
-    .confirm-box {
-      background: var(--glass-bg-strong);
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
-      border: 1px solid var(--glass-border-strong);
-      border-radius: 14px;
-      padding: 28px 28px 22px;
-      width: 340px;
-      box-shadow: 0 24px 80px rgba(0,0,0,.25);
-      animation: composeIn .2s ease;
+    .claim-card h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+    .claim-card p {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+    .input-row {
+      display: flex;
+      align-items: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .input-row:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.1);
+    }
+    .input-row input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 0.75rem 1rem;
+      font-family: inherit;
+    }
+    .input-row input::placeholder { color: var(--muted); }
+    .input-suffix {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0 1rem 0 0;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .claim-btn {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .claim-btn:hover { background: var(--accent-hover); }
+    .claim-btn:active { transform: scale(0.98); }
+    .terms {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.9rem;
       text-align: center;
     }
-    .confirm-title { font-size: 16px; font-weight: 700; color: var(--txt); margin-bottom: 8px; }
-    body.dark .confirm-title { color: var(--txtd); }
-    .confirm-sub { font-size: 13px; color: var(--mut); margin-bottom: 20px; }
-    body.dark .confirm-sub { color: var(--mutd); }
-    .confirm-actions { display: flex; gap: 8px; justify-content: center; }
-    .confirm-cancel {
-      padding: 8px 20px; border-radius: 8px;
-      border: 1px solid var(--glass-border-strong);
-      background: var(--glass-bg-hover);
-      color: var(--txt); font-size: 13px; font-weight: 600; cursor: pointer;
-    }
-    body.dark .confirm-cancel { color: var(--txtd); }
-    .confirm-delete {
-      padding: 8px 20px; border-radius: 8px; border: none;
-      background: #ef4444; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
-    }
-    .confirm-delete:hover { background: #dc2626; }
+    .terms a { color: var(--accent); text-decoration: none; }
 
-    @media (max-width: 900px) {
-      .mail-left { width: 52px; }
-      .mail-left .fi-name, .mail-left .folder-label,
-      .mail-left .mail-address-pill, .mail-left .mail-compose-btn span { display: none; }
-      .mail-left .mail-compose-btn { justify-content: center; }
-      .mail-read-pane { display: none; }
-      .mail-read-pane.show { display: flex; }
-      .mail-list-panel { flex: 1; width: auto; }
+    /* STATUS */
+    .status-msg {
+      font-size: 0.8rem;
+      margin-top: 0.6rem;
+      height: 1rem;
+      transition: color 0.2s;
     }
-    @media (max-width: 580px) {
-      .mail-list-panel { display: none; }
-      .mail-list-panel.show { display: flex; width: 100%; }
-      .mail-read-pane { display: none; }
-      .mail-read-pane.show { display: flex; width: 100%; flex: 1; }
+    .status-msg.available { color: #4ade80; }
+    .status-msg.taken { color: #f87171; }
+    .status-msg.checking { color: var(--muted); }
+
+    /* WHY SECTION */
+    .why {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 2rem 6rem;
+    }
+    .section-label {
+      text-align: center;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .why h2 {
+      text-align: center;
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 3rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: border-color 0.2s;
+    }
+    .feature-card:hover { border-color: var(--border-hover); }
+    .feat-icon {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .feature-card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .feature-card p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* COMPARE */
+    .compare {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 2rem 6rem;
+    }
+    .compare h2 {
+      text-align: center;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 2rem;
+    }
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .compare-table th {
+      padding: 0.75rem 1rem;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-table th:first-child { text-align: left; }
+    .compare-table th.highlight { color: var(--accent); }
+    .compare-table td {
+      padding: 0.85rem 1rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .compare-table td:first-child {
+      text-align: left;
+      color: var(--text);
+      font-size: 0.875rem;
+    }
+    .compare-table td.highlight { color: var(--accent); font-weight: 500; }
+    .check { color: #4ade80; }
+    .cross { color: #f87171; }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 4rem 2rem 6rem;
+      border-top: 1px solid var(--border);
+    }
+    .cta h2 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 1rem;
+    }
+    .cta p { color: var(--muted); margin-bottom: 2rem; }
+    .cta-btn {
+      display: inline-block;
+      padding: 0.85rem 2.2rem;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .cta-btn:hover { background: var(--accent-hover); }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      nav { padding: 1rem 1.25rem; }
+      .hero { padding: 4rem 1.25rem 3rem; }
+      .claim-card { padding: 1.5rem; margin: 0 1rem 4rem; }
+      .why, .compare { padding-left: 1.25rem; padding-right: 1.25rem; }
+      footer { flex-direction: column; gap: 0.5rem; text-align: center; }
     }
   </style>
 </head>
 <body>
 
-  <div class="cursor-dot"></div>
-  <div class="cursor-trail"></div>
-  <div class="cursor-crosshair"></div>
-  <div class="cursor-blob"></div>
-
-  <button class="sidebar-toggle" id="sidebarToggle">☰ Menu</button>
-
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="logo-mark"></div>
-      <button id="settingsBtn">⚙</button>
+  <!-- NAV -->
+  <nav>
+    <a href="/" class="nav-logo">360<span>Mail</span></a>
+    <div style="display:flex;gap:1.5rem;align-items:center;">
+      <a href="/">360 Home</a>
+      <a href="/assets/html/apps.html">Apps</a>
+      <a href="#claim" style="color:var(--accent);">Claim username</a>
     </div>
-    <nav class="nav-list">
-      <div class="nav-item" data-href="/">Home</div>
-      <div class="nav-item" data-href="/ai">AI</div>
-      <div class="nav-item" data-href="/weather">Weather</div>
-      <div class="nav-item" data-href="/translator">Translator</div>
-      <div class="nav-item" data-href="/stocks">Stocks</div>
-      <div class="nav-item" data-href="/url-shortener">URL Shortener</div>
-      <div class="nav-item" data-href="/chat">Chat</div>
-      <div class="nav-item" data-href="/news">News</div>
-      <div class="nav-item" data-href="/apps">Apps</div>
-      <div class="nav-item" data-href="/games">Games</div>
-      <div class="nav-item active" data-href="/360mail">360Mail</div>
-    </nav>
-    <div class="sidebar-footer"><span id="sidebar-ver">Loading...</span></div>
-  </aside>
+  </nav>
 
-  <div class="overlay" id="overlay"></div>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="badge">Now in early access</div>
+    <h1>Email that's actually <em>yours.</em></h1>
+    <p class="hero-sub">
+      360 Mail gives you a clean <strong>@360-search.com</strong> address with no ads, no
+      data selling, and no corporate nonsense. Built into the 360 ecosystem you already use.
+    </p>
+  </section>
 
-  <div class="settings-panel" id="settingsPanel">
-    <h3>Appearance</h3>
-    <div class="settings-label">Theme</div>
-    <div class="theme-swatches">
-      <div class="theme-option"><div class="swatch" data-theme="ocean"></div><span>Ocean</span></div>
-      <div class="theme-option"><div class="swatch" data-theme="midnight"></div><span>Midnight</span></div>
-      <div class="theme-option"><div class="swatch" data-theme="sunset"></div><span>Sunset</span></div>
-      <div class="theme-option"><div class="swatch" data-theme="mint"></div><span>Mint</span></div>
-      <div class="theme-option"><div class="swatch" data-theme="neon"></div><span>Neon</span></div>
-      <div class="theme-option"><div class="swatch" data-theme="mono"></div><span>Mono</span></div>
-    </div>
-    <div class="settings-label" style="margin-top:20px;">Mode</div>
-    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-      <span style="font-size:14px;">Dark mode</span>
-      <input type="checkbox" id="darkToggle" />
-    </label>
-    <h3 style="margin-top:20px;">Cursor</h3>
-    <div class="settings-label">Style</div>
-    <div class="cursor-options">
-      <div class="cursor-option active" data-cursor="default"><div class="cursor-preview preview-default"></div>Default</div>
-      <div class="cursor-option" data-cursor="dot"><div class="cursor-preview preview-dot"></div>Dot</div>
-      <div class="cursor-option" data-cursor="ring"><div class="cursor-preview preview-ring"></div>Ring</div>
-      <div class="cursor-option" data-cursor="crosshair"><div class="cursor-preview preview-crosshair"></div>Crosshair</div>
-      <div class="cursor-option" data-cursor="blob"><div class="cursor-preview preview-blob"></div>Blob</div>
-      <div class="cursor-option" data-cursor="system"><div class="cursor-preview preview-system"></div>System</div>
-    </div>
-    <div class="cursor-color-row">
-      <label>Cursor color</label>
-      <input type="color" id="cursorColorPicker" value="#3b82f6" />
-      <button id="cursorColorReset">Reset</button>
-    </div>
-    <div class="temp-unit-box" style="margin-top:20px;">
-      Temp Unit: <span id="tempUnitLabel">°C</span>
-      <button id="tempUnitBtn">Switch</button>
-    </div>
-    <div class="settings-box" style="margin-top:20px;">
-      <div class="settings-label">Background Image</div>
-      <input type="file" id="bgUpload" accept="image/*" class="settings-input" />
-      <input type="text" id="bgUrlInput" placeholder="Paste image URL…" class="settings-input" />
-      <button id="bgUrlBtn" class="settings-btn">Apply URL</button>
-      <button id="bgResetBtn" class="settings-btn">Reset</button>
-    </div>
-    <h3 style="margin-top:25px;">Legal</h3>
-    <a href="/privacypolicy" class="legal-link">🔒 Privacy Policy</a>
-    <a href="/tos" class="legal-link">📜 Terms of Service</a>
-    <h3 style="margin-top:25px;">About</h3>
-    <details class="about-dropdown">
-      <summary>ℹ️ What is 360?</summary>
-      <p>360 is a next-generation search engine and digital workspace. Built by 360 Digital, Co.</p>
-    </details>
-  </div>
-
-  <div class="auth-top-right">
-    <button id="signInBtn" class="auth-btn">Sign In</button>
-    <button id="signUpBtn" class="auth-btn">Sign Up</button>
-    <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
-  </div>
-
-  <button id="installBtn" class="install-banner" style="display:none;">Install 360</button>
-
-  <!-- ── SIGN-IN GATE (shown when logged out) ── -->
-  <div class="mail-gate" id="mailGate" style="display:none;">
-    <div class="mail-gate-icon">✉️</div>
-    <div class="mail-gate-title">360Mail</div>
-    <div class="mail-gate-sub">Sign in to access your @360-search.com inbox and send mail to anyone.</div>
-    <button class="mail-gate-btn" onclick="location.href='/account?signin&from=/apps/360mail'">Sign In</button>
-    <div style="font-size:13px;color:var(--mut);margin-top:8px;">
-      No account? <a href="/account?signup&from=/apps/360mail" style="color:var(--a);font-weight:600;">Sign up free</a>
-    </div>
-  </div>
-
-  <!-- ── CLAIM GATE (shown when signed in but no username) ── -->
-  <div class="mail-gate" id="claimGate" style="display:none;">
-    <div class="mail-gate-icon">📬</div>
-    <div class="mail-gate-title">One More Step</div>
-    <div class="mail-gate-sub">Claim your free <strong>@360-search.com</strong> mail address to start using 360Mail.</div>
-    <button class="mail-gate-btn" onclick="location.href='/apps/360mail-claim'">Claim My Address →</button>
-  </div>
-
-  <!-- ── MAIN MAIL APP ── -->
-  <div class="mail-root" id="mailApp" style="display:none;">
-
-    <!-- Left: folders -->
-    <div class="mail-left" id="mailLeft">
-      <button class="mail-compose-btn" id="composeBtn">
-        <span>✏</span><span>Compose</span>
-      </button>
-
-      <div class="folder-label">Mailbox</div>
-      <div class="folder-item active" data-folder="inbox">
-        <span class="fi-icon">📥</span>
-        <span class="fi-name">Inbox</span>
-        <span class="folder-badge" id="inboxBadge" style="display:none;"></span>
+  <!-- CLAIM BOX -->
+  <section id="claim">
+    <div class="claim-card">
+      <h2>Claim your username</h2>
+      <p>Reserve your address before someone else does. Free during early access.</p>
+      <div class="input-row">
+        <input
+          type="text"
+          id="username-input"
+          placeholder="yourname"
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="32"
+          oninput="handleInput(this)"
+        />
+        <span class="input-suffix">@360-search.com</span>
       </div>
-      <div class="folder-item" data-folder="sent">
-        <span class="fi-icon">📤</span>
-        <span class="fi-name">Sent</span>
-      </div>
-      <div class="folder-item" data-folder="starred">
-        <span class="fi-icon">⭐</span>
-        <span class="fi-name">Starred</span>
-      </div>
-
-      <div class="mail-address-pill" id="myAddressPill">Loading…</div>
+      <div class="status-msg" id="status-msg"></div>
+      <button class="claim-btn" id="claimBtnMain" onclick="handleClaim()">Claim this address →</button>
+      <p class="terms">By claiming, you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.</p>
     </div>
+  </section>
 
-    <!-- Middle: email list -->
-    <div class="mail-list-panel" id="mailListPanel">
-      <div class="mail-list-header">
-        <div class="mail-list-title" id="listTitle">Inbox</div>
-        <div class="mail-list-count" id="listCount">0</div>
+  <!-- WHY SWITCH -->
+  <section class="why">
+    <p class="section-label">Why 360 Mail</p>
+    <h2>Everything wrong with your current inbox — fixed.</h2>
+    <div class="grid">
+      <div class="feature-card">
+        <div class="feat-icon">🚫</div>
+        <h3>Zero ads. Zero tracking.</h3>
+        <p>Gmail reads your emails to sell you stuff. We don't. Your inbox is yours.</p>
       </div>
-      <div class="mail-search-bar">
-        <input type="text" id="mailSearch" placeholder="Search mail…" />
+      <div class="feature-card">
+        <div class="feat-icon">🔗</div>
+        <h3>Built into 360</h3>
+        <p>Seamlessly connected to 360 Search, 360 Chat, and the rest of the ecosystem.</p>
       </div>
-      <div class="mail-list-scroll" id="mailListScroll">
-        <!-- skeletons -->
-        <div id="mailSkeletons">
-          <div class="mail-skeleton"><div class="sk-line" style="width:60%"></div><div class="sk-line" style="width:85%"></div><div class="sk-line" style="width:45%"></div></div>
-          <div class="mail-skeleton"><div class="sk-line" style="width:55%"></div><div class="sk-line" style="width:78%"></div><div class="sk-line" style="width:50%"></div></div>
-          <div class="mail-skeleton"><div class="sk-line" style="width:70%"></div><div class="sk-line" style="width:88%"></div><div class="sk-line" style="width:40%"></div></div>
-        </div>
+      <div class="feature-card">
+        <div class="feat-icon">⚡</div>
+        <h3>Actually fast</h3>
+        <p>No bloat. No tracking scripts. Just a fast, clean inbox that loads instantly.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon">🔒</div>
+        <h3>Your identity</h3>
+        <p>A @360-search.com address signals you're part of something built different.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon">📱</div>
+        <h3>Works everywhere</h3>
+        <p>IMAP/SMTP support means it works with any mail client — phone, desktop, anywhere.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon">🛡️</div>
+        <h3>Spam protection</h3>
+        <p>Cloudflare-powered routing with built-in filtering before anything hits your inbox.</p>
       </div>
     </div>
+  </section>
 
-    <!-- Right: reading pane -->
-    <div class="mail-read-pane" id="mailReadPane">
-      <div class="mail-no-select" id="noMailSelected">
-        <div class="mail-no-select-icon">✉️</div>
-        <div class="mail-no-select-text">Select a message to read</div>
-      </div>
-      <div id="mailReadContent" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
-        <div class="mail-read-header">
-          <div class="mrh-subject" id="rdSubject"></div>
-          <div class="mrh-meta">
-            <div class="mrh-from" id="rdFrom"></div>
-            <div class="mrh-addr" id="rdAddr"></div>
-            <div class="mrh-time" id="rdTime"></div>
-          </div>
-        </div>
-        <div class="mail-read-actions">
-          <button class="mra-btn" id="rdReply">↩ Reply</button>
-          <button class="mra-btn" id="rdForward">→ Forward</button>
-          <button class="mra-btn" id="rdStar">☆ Star</button>
-          <button class="mra-btn danger" id="rdDelete">🗑 Delete</button>
-          <button class="mra-btn" id="rdBack" style="display:none;">← Back</button>
-        </div>
-        <div class="mail-read-body" id="rdBody"></div>
-      </div>
+  <!-- COMPARISON TABLE -->
+  <section class="compare">
+    <h2>How we stack up</h2>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th class="highlight">360 Mail</th>
+          <th>Gmail</th>
+          <th>Outlook</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Ad-free</td>
+          <td class="highlight check">✓</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+        </tr>
+        <tr>
+          <td>No email scanning</td>
+          <td class="highlight check">✓</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+        </tr>
+        <tr>
+          <td>Custom @domain</td>
+          <td class="highlight check">✓ Free</td>
+          <td class="cross">Paid only</td>
+          <td class="cross">Paid only</td>
+        </tr>
+        <tr>
+          <td>360 ecosystem integration</td>
+          <td class="highlight check">✓ Native</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+        </tr>
+        <tr>
+          <td>IMAP/SMTP support</td>
+          <td class="highlight check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- BOTTOM CTA -->
+  <section class="cta">
+    <h2>Ready to switch?</h2>
+    <p>Claim your @360-search.com address now — free during early access.</p>
+    <a href="#claim" class="cta-btn">Get your address →</a>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <span>© 2025 360 Digital, Co. All rights reserved.</span>
+    <div style="display:flex;gap:1.5rem;">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="mailto:support@360-search.com">Support</a>
     </div>
-  </div>
+  </footer>
 
-  <!-- ── COMPOSE MODAL ── -->
-  <div class="compose-modal" id="composeModal">
-    <div class="compose-box">
-      <div class="compose-header">
-        <span class="compose-title">✏ New Message</span>
-        <button class="compose-close" id="composeClose">✕</button>
-      </div>
-      <div class="compose-fields">
-        <div class="compose-field">
-          <label>To</label>
-          <input type="email" id="cTo" placeholder="recipient@example.com" />
-        </div>
-        <div class="compose-field">
-          <label>Subject</label>
-          <input type="text" id="cSubject" placeholder="Subject" />
-        </div>
-      </div>
-      <div class="compose-body-wrap">
-        <textarea class="compose-body" id="cBody" placeholder="Write your message…"></textarea>
-      </div>
-      <div class="compose-footer">
-        <button class="compose-send-btn" id="cSendBtn">
-          <span>✈</span> Send
-        </button>
-        <span class="compose-status" id="cStatus"></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── DELETE CONFIRM ── -->
-  <div class="confirm-overlay" id="confirmOverlay">
-    <div class="confirm-box">
-      <div class="confirm-title">Delete message?</div>
-      <div class="confirm-sub">This will permanently remove the message from your inbox.</div>
-      <div class="confirm-actions">
-        <button class="confirm-cancel" id="confirmCancel">Cancel</button>
-        <button class="confirm-delete" id="confirmDelete">Delete</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="/assets/js/main.js"></script>
-  <script src="/assets/js/wide.js"></script>
-  <script src="/assets/js/cookie.js"></script>
-  <script src="/assets/js/cursor.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-  (() => {
-    const sb = supabaseClient;
-    const SUPABASE_URL  = "https://wiswfpfsjiowtrdyqpxy.supabase.co";
-    const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpc3dmcGZzamlvd3RyZHlxcHh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzg4OTcsImV4cCI6MjA4MzkxNDg5N30.z_4FtM2c8UwgrRlafPYjolQuod4IoHQats95XHio1zM";
+    /* ── Supabase ── */
+    const _sb = supabase.createClient(
+      "https://wiswfpfsjiowtrdyqpxy.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpc3dmcGZzamlvd3RyZHlxcHh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzg4OTcsImV4cCI6MjA4MzkxNDg5N30.z_4FtM2c8UwgrRlafPYjolQuod4IoHQats95XHio1zM"
+    );
 
-    let currentUser    = null;
-    let userEmail      = null;  // username@360-search.com
-    let currentFolder  = "inbox";
-    let allEmails      = [];
-    let filteredEmails = [];
-    let selectedId     = null;
-    let deleteTarget   = null;
-    let realtimeSub    = null;
+    const USERNAME_RE = /^[a-zA-Z0-9_]{3,24}$/;
+    let debounceTimer;
+    let _isAvailable = false;
 
-    // ── DOM refs ──
-    const mailGate      = document.getElementById("mailGate");
-    const claimGate     = document.getElementById("claimGate");
-    const mailApp       = document.getElementById("mailApp");
-    const listScroll    = document.getElementById("mailListScroll");
-    const skeletons     = document.getElementById("mailSkeletons");
-    const listTitle     = document.getElementById("listTitle");
-    const listCount     = document.getElementById("listCount");
-    const inboxBadge    = document.getElementById("inboxBadge");
-    const noSelect      = document.getElementById("noMailSelected");
-    const readContent   = document.getElementById("mailReadContent");
-    const addressPill   = document.getElementById("myAddressPill");
-    const searchInput   = document.getElementById("mailSearch");
-    const composeModal  = document.getElementById("composeModal");
-    const confirmOverlay= document.getElementById("confirmOverlay");
-    const rdBack        = document.getElementById("rdBack");
+    function handleInput(input) {
+      const val = input.value.trim();
+      const msg = document.getElementById('status-msg');
+      _isAvailable = false;
 
-    // ── Init ──
-    (async () => {
-      const { data: { session } } = await sb.auth.getSession();
+      // Sanitize
+      input.value = val.replace(/[^a-zA-Z0-9_]/g, '');
+      const clean = input.value;
+
+      if (!clean) { msg.textContent = ''; msg.className = 'status-msg'; return; }
+
+      if (!USERNAME_RE.test(clean)) {
+        msg.textContent = clean.length < 3
+          ? 'At least 3 characters required.'
+          : clean.length > 24
+          ? 'Maximum 24 characters.'
+          : 'Letters, numbers, and underscores only.';
+        msg.className = 'status-msg taken';
+        return;
+      }
+
+      msg.textContent = 'Checking availability…';
+      msg.className = 'status-msg checking';
+
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => checkAvailability(clean), 500);
+    }
+
+    async function checkAvailability(username) {
+      const msg = document.getElementById('status-msg');
+      try {
+        const { data } = await _sb.from('profiles').select('id').eq('username', username).maybeSingle();
+        if (data) {
+          msg.textContent = '✗ That username is already taken.';
+          msg.className = 'status-msg taken';
+          _isAvailable = false;
+        } else {
+          msg.textContent = '✓ ' + username + '@360-search.com is available!';
+          msg.className = 'status-msg available';
+          _isAvailable = true;
+        }
+      } catch {
+        msg.textContent = 'Could not check availability. Try again.';
+        msg.className = 'status-msg taken';
+      }
+    }
+
+    async function handleClaim() {
+      const usernameRaw = document.getElementById('username-input').value.trim();
+      const msg = document.getElementById('status-msg');
+      const btn = document.querySelector('.claim-btn');
+
+      if (!usernameRaw || !USERNAME_RE.test(usernameRaw)) {
+        msg.textContent = 'Enter a valid username first.';
+        msg.className = 'status-msg taken';
+        return;
+      }
+
+      const username = usernameRaw.toLowerCase();
+
+      // Check if signed in
+      const { data: { session } } = await _sb.auth.getSession();
       if (!session) {
-        mailGate.style.display = "flex";
-        return;
-      }
-      currentUser = session.user;
-      await loadProfile();
-
-      // If no 360mail address can be resolved, send to claim page
-      if (!userEmail || !userEmail.endsWith("@360-search.com")) {
-        claimGate.style.display = "flex";
+        // Not signed in — redirect to dedicated claim page with pre-fill
+        window.location.href = '/apps/360mail-claim?u=' + encodeURIComponent(username);
         return;
       }
 
-      mailApp.style.display = "flex";
-      setupFolders();
-      setupCompose();
-      setupSearch();
-      setupRealtime();
-      await loadMail();
-    })();
-
-    sb.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        mailGate.style.display = "flex";
-        claimGate.style.display = "none";
-        mailApp.style.display = "none";
-      }
-    });
-
-    // ── Load profile → get 360mail address ──
-    async function loadProfile() {
-      const { data: profile } = await sb.from("profiles")
-        .select("email, username")
-        .eq("id", currentUser.id)
-        .maybeSingle();
-
-      // Prefer profile.email if it's a @360-search.com address
-      if (profile?.email && profile.email.endsWith("@360-search.com")) {
-        userEmail = profile.email;
-      } else if (profile?.username) {
-        // Derive from username
-        userEmail = profile.username.toLowerCase() + "@360-search.com";
-      } else if (currentUser.user_metadata?.username) {
-        // Fallback: auth metadata username
-        userEmail = currentUser.user_metadata.username.toLowerCase() + "@360-search.com";
-      } else {
-        // No 360mail address — user needs to claim
-        userEmail = null;
-      }
-
-      addressPill.textContent = userEmail || "No address";
-    }
-
-    // ── Folder nav ──
-    function setupFolders() {
-      document.querySelectorAll(".folder-item").forEach(item => {
-        item.addEventListener("click", () => {
-          document.querySelectorAll(".folder-item").forEach(f => f.classList.remove("active"));
-          item.classList.add("active");
-          currentFolder = item.dataset.folder;
-          listTitle.textContent = { inbox:"Inbox", sent:"Sent", starred:"Starred" }[currentFolder] || "Inbox";
-          selectedId = null;
-          hideReadPane();
-          applyFilter();
-        });
-      });
-    }
-
-    // ── Load mail from Supabase ──
-    async function loadMail() {
-      if (!userEmail) return;
-      skeletons.style.display = "block";
-
-      const { data, error } = await sb.from("inbox")
-        .select("*")
-        .eq("owner_email", userEmail)
-        .order("received_at", { ascending: false });
-
-      skeletons.style.display = "none";
-
-      if (error) {
-        listScroll.innerHTML = `<div class="mail-empty"><div class="mail-empty-icon">⚠️</div><div class="mail-empty-text">Failed to load mail</div><div class="mail-empty-sub">${esc(error.message)}</div></div>`;
+      if (!_isAvailable) {
+        msg.textContent = 'Check availability before claiming.';
+        msg.className = 'status-msg taken';
         return;
       }
 
-      allEmails = data || [];
-      updateInboxBadge();
-      applyFilter();
-    }
-
-    function updateInboxBadge() {
-      const unread = allEmails.filter(e => e.direction === "in" && !e.read).length;
-      if (unread > 0) {
-        inboxBadge.textContent = unread > 99 ? "99+" : unread;
-        inboxBadge.style.display = "flex";
-      } else {
-        inboxBadge.style.display = "none";
-      }
-    }
-
-    // ── Filter + render list ──
-    function applyFilter() {
-      const q = searchInput.value.trim().toLowerCase();
-      let list = allEmails;
-
-      if (currentFolder === "inbox")   list = list.filter(e => e.direction === "in");
-      if (currentFolder === "sent")    list = list.filter(e => e.direction === "out");
-      if (currentFolder === "starred") list = list.filter(e => e.starred);
-
-      if (q) {
-        list = list.filter(e =>
-          (e.subject||"").toLowerCase().includes(q) ||
-          (e.from_addr||"").toLowerCase().includes(q) ||
-          (e.to_addr||"").toLowerCase().includes(q) ||
-          (e.body_text||"").toLowerCase().includes(q)
-        );
-      }
-
-      filteredEmails = list;
-      listCount.textContent = list.length;
-      renderList();
-    }
-
-    function renderList() {
-      if (filteredEmails.length === 0) {
-        const msgs = { inbox:"No messages in your inbox", sent:"No sent messages", starred:"No starred messages" };
-        listScroll.innerHTML = `<div class="mail-empty">
-          <div class="mail-empty-icon">${currentFolder==="inbox"?"📭":currentFolder==="sent"?"📤":"⭐"}</div>
-          <div class="mail-empty-text">${msgs[currentFolder] || "No messages"}</div>
-          <div class="mail-empty-sub">${searchInput.value ? "Try a different search" : currentFolder==="inbox" ? "Emails you receive will appear here" : ""}</div>
-        </div>`;
-        return;
-      }
-
-      listScroll.innerHTML = filteredEmails.map(email => {
-        const isUnread = email.direction === "in" && !email.read;
-        const isActive = email.id === selectedId;
-        const display  = email.direction === "out" ? (email.to_addr || "") : (email.from_addr || "");
-        const preview  = email.body_text || stripHtml(email.body_html || "") || "";
-        return `<div class="mail-item${isUnread?" unread":""}${isActive?" active":""}" data-id="${email.id}">
-          <button class="mi-star${email.starred?" starred":""}" data-id="${email.id}" title="Star">★</button>
-          <div class="mi-row1">
-            <span class="mi-from">${esc(display)}</span>
-            <span class="mi-time">${relativeTime(email.received_at)}</span>
-          </div>
-          <div class="mi-subject">${esc(email.subject || "(no subject)")}</div>
-          <div class="mi-preview">${esc(preview.slice(0,90))}</div>
-        </div>`;
-      }).join("");
-
-      // click handlers
-      listScroll.querySelectorAll(".mail-item").forEach(item => {
-        item.addEventListener("click", e => {
-          if (e.target.classList.contains("mi-star")) return;
-          openEmail(item.dataset.id);
-        });
-      });
-      listScroll.querySelectorAll(".mi-star").forEach(btn => {
-        btn.addEventListener("click", e => {
-          e.stopPropagation();
-          toggleStar(btn.dataset.id);
-        });
-      });
-    }
-
-    // ── Open email ──
-    async function openEmail(id) {
-      selectedId = id;
-      renderList(); // re-render to highlight active
-
-      const email = allEmails.find(e => e.id === id);
-      if (!email) return;
-
-      // mark read
-      if (!email.read && email.direction === "in") {
-        email.read = true;
-        await sb.from("inbox").update({ read: true }).eq("id", id);
-        updateInboxBadge();
-      }
-
-      // populate read pane
-      document.getElementById("rdSubject").textContent = email.subject || "(no subject)";
-      const isSent = email.direction === "out";
-      document.getElementById("rdFrom").textContent = isSent ? "To: " + (email.to_addr||"") : "From: " + (email.from_addr||"");
-      document.getElementById("rdAddr").textContent = isSent ? "" : "→ " + (email.to_addr||"");
-      document.getElementById("rdTime").textContent = formatDate(email.received_at);
-
-      const starBtn = document.getElementById("rdStar");
-      starBtn.textContent = (email.starred ? "★ Unstar" : "☆ Star");
-
-      const body = document.getElementById("rdBody");
-      if (email.body_html) {
-        body.innerHTML = `<div class="mail-body-html">${email.body_html}</div>`;
-      } else if (email.body_text) {
-        body.innerHTML = `<pre class="mail-body-plain">${esc(email.body_text)}</pre>`;
-      } else {
-        body.innerHTML = `<div class="mail-body-plain" style="opacity:.4">No message body.</div>`;
-      }
-
-      noSelect.style.display = "none";
-      readContent.style.display = "flex";
-
-      // Mobile back button
-      const isMobile = window.innerWidth < 900;
-      rdBack.style.display = isMobile ? "flex" : "none";
-      if (isMobile) {
-        document.getElementById("mailReadPane").classList.add("show");
-        document.getElementById("mailListPanel").classList.remove("show");
-      }
-
-      // Action: reply
-      document.getElementById("rdReply").onclick = () => {
-        openCompose(email.from_addr || "", "Re: " + (email.subject||""));
-      };
-      // Action: forward
-      document.getElementById("rdForward").onclick = () => {
-        const bodyText = email.body_text || stripHtml(email.body_html||"");
-        openCompose("", "Fwd: " + (email.subject||""), "\n\n--- Forwarded message ---\nFrom: " + (email.from_addr||"") + "\n\n" + bodyText);
-      };
-      // Action: star
-      starBtn.onclick = () => toggleStar(id);
-      // Action: delete
-      document.getElementById("rdDelete").onclick = () => confirmDelete(id);
-    }
-
-    // ── Hide read pane ──
-    function hideReadPane() {
-      noSelect.style.display = "flex";
-      readContent.style.display = "none";
-    }
-
-    // ── Mobile back ──
-    rdBack.addEventListener("click", () => {
-      document.getElementById("mailReadPane").classList.remove("show");
-      document.getElementById("mailListPanel").classList.add("show");
-    });
-
-    // ── Star toggle ──
-    async function toggleStar(id) {
-      const email = allEmails.find(e => e.id === id);
-      if (!email) return;
-      email.starred = !email.starred;
-      await sb.from("inbox").update({ starred: email.starred }).eq("id", id);
-      renderList();
-      if (selectedId === id) {
-        document.getElementById("rdStar").textContent = email.starred ? "★ Unstar" : "☆ Star";
-      }
-      if (currentFolder === "starred") applyFilter();
-    }
-
-    // ── Delete ──
-    function confirmDelete(id) {
-      deleteTarget = id;
-      confirmOverlay.classList.add("open");
-    }
-    document.getElementById("confirmCancel").onclick = () => {
-      confirmOverlay.classList.remove("open");
-      deleteTarget = null;
-    };
-    document.getElementById("confirmDelete").onclick = async () => {
-      if (!deleteTarget) return;
-      await sb.from("inbox").delete().eq("id", deleteTarget);
-      allEmails = allEmails.filter(e => e.id !== deleteTarget);
-      if (selectedId === deleteTarget) {
-        selectedId = null;
-        hideReadPane();
-      }
-      deleteTarget = null;
-      confirmOverlay.classList.remove("open");
-      updateInboxBadge();
-      applyFilter();
-    };
-
-    // ── Search ──
-    function setupSearch() {
-      searchInput.addEventListener("input", applyFilter);
-    }
-
-    // ── Realtime new mail ──
-    function setupRealtime() {
-      if (!userEmail) return;
-      realtimeSub = sb.channel("inbox_realtime")
-        .on("postgres_changes", {
-          event: "INSERT",
-          schema: "public",
-          table: "inbox",
-          filter: `owner_email=eq.${userEmail}`
-        }, payload => {
-          allEmails.unshift(payload.new);
-          updateInboxBadge();
-          applyFilter();
-        })
-        .subscribe();
-    }
-
-    // ── Compose ──
-    function setupCompose() {
-      document.getElementById("composeBtn").onclick = () => openCompose();
-      document.getElementById("composeClose").onclick = closeCompose;
-      document.getElementById("cSendBtn").onclick = sendMail;
-    }
-
-    function openCompose(to = "", subject = "", body = "") {
-      document.getElementById("cTo").value = to;
-      document.getElementById("cSubject").value = subject;
-      document.getElementById("cBody").value = body;
-      document.getElementById("cStatus").textContent = "";
-      document.getElementById("cSendBtn").disabled = false;
-      composeModal.classList.add("open");
-      setTimeout(() => document.getElementById("cTo").focus(), 80);
-    }
-
-    function closeCompose() {
-      composeModal.classList.remove("open");
-    }
-
-    async function sendMail() {
-      const to      = document.getElementById("cTo").value.trim();
-      const subject = document.getElementById("cSubject").value.trim();
-      const text    = document.getElementById("cBody").value.trim();
-      const btn     = document.getElementById("cSendBtn");
-      const status  = document.getElementById("cStatus");
-
-      if (!to || !subject || !text) {
-        status.textContent = "To, subject, and message are required.";
-        status.className = "compose-status err";
-        return;
-      }
-
+      btn.textContent = 'Claiming…';
       btn.disabled = true;
-      btn.innerHTML = "<span>⏳</span> Sending…";
-      status.textContent = "";
 
       try {
-        const { data: { session } } = await sb.auth.getSession();
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-          method: "POST",
-          headers: {
-            "Content-Type":  "application/json",
-            "Authorization": `Bearer ${session.access_token}`,
-            "apikey":        SUPABASE_ANON,
-          },
-          body: JSON.stringify({ to, subject, text }),
-        });
-        const json = await res.json();
-        if (!res.ok) {
-          throw new Error(json.error?.message || json.error || "Send failed");
+        // Final availability check
+        const { data: existing } = await _sb.from('profiles').select('id').eq('username', username).maybeSingle();
+        if (existing) {
+          msg.textContent = '✗ Taken just now — try another username.';
+          msg.className = 'status-msg taken';
+          _isAvailable = false;
+          btn.textContent = 'Claim this address →';
+          btn.disabled = false;
+          return;
         }
-        status.textContent = "Sent ✓";
-        status.className = "compose-status ok";
-        btn.innerHTML = "<span>✈</span> Send";
-        btn.disabled = false;
-        setTimeout(closeCompose, 1200);
-        // refresh sent
-        await loadMail();
+
+        const mailAddress = username + '@360-search.com';
+        const { error } = await _sb.from('profiles').upsert(
+          { id: session.user.id, username, email: mailAddress },
+          { onConflict: 'id' }
+        );
+        if (error) throw error;
+
+        await _sb.auth.updateUser({ data: { username } });
+
+        msg.textContent = '✓ Address claimed! Redirecting to your inbox…';
+        msg.className = 'status-msg available';
+        btn.textContent = 'Done ✓';
+
+        setTimeout(() => { window.location.href = '/apps/360mail'; }, 1400);
+
       } catch (err) {
-        status.textContent = err.message;
-        status.className = "compose-status err";
-        btn.innerHTML = "<span>✈</span> Send";
+        msg.textContent = err.message || 'Something went wrong. Please try again.';
+        msg.className = 'status-msg taken';
+        btn.textContent = 'Claim this address →';
         btn.disabled = false;
       }
     }
 
-    // ── Utils ──
-    function esc(s) {
-      return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
-    function stripHtml(html) {
-      const d = document.createElement("div");
-      d.innerHTML = html;
-      return d.textContent || d.innerText || "";
-    }
-    function relativeTime(ts) {
-      const now  = Date.now();
-      const then = new Date(ts).getTime();
-      const diff = Math.floor((now - then) / 1000);
-      if (diff < 60)     return "just now";
-      if (diff < 3600)   return Math.floor(diff/60) + "m ago";
-      if (diff < 86400)  return Math.floor(diff/3600) + "h ago";
-      if (diff < 604800) return Math.floor(diff/86400) + "d ago";
-      return new Date(ts).toLocaleDateString(undefined, { month:"short", day:"numeric" });
-    }
-    function formatDate(ts) {
-      return new Date(ts).toLocaleString(undefined, {
-        month:"short", day:"numeric", year:"numeric",
-        hour:"numeric", minute:"2-digit"
-      });
-    }
-  })();
+    // If user is already signed in and has a username, update hero
+    (async () => {
+      const { data: { session } } = await _sb.auth.getSession();
+      if (!session) return;
+
+      const { data: profile } = await _sb.from('profiles')
+        .select('username, email')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      const hasUsername = profile?.username || session.user.user_metadata?.username;
+      if (hasUsername) {
+        // Already claimed — show go to inbox button
+        const claimCard = document.querySelector('.claim-card');
+        const mailAddr = (profile?.email && profile.email.endsWith('@360-search.com'))
+          ? profile.email
+          : hasUsername.toLowerCase() + '@360-search.com';
+        claimCard.innerHTML = `
+          <h2>You're all set! ✅</h2>
+          <p>Your 360Mail address is ready.</p>
+          <div style="background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.25);border-radius:8px;padding:12px 16px;font-size:1rem;font-weight:600;color:var(--accent);margin-bottom:1.2rem;">${mailAddr}</div>
+          <button class="claim-btn" onclick="location.href='/apps/360mail'" style="margin-top:0;">Open Inbox →</button>
+        `;
+      }
+
+      // Pre-fill username from URL param
+      const urlU = new URLSearchParams(location.search).get('u');
+      if (urlU) {
+        const inp = document.getElementById('username-input');
+        if (inp) { inp.value = urlU; handleInput(inp); }
+      }
+    })();
   </script>
 </body>
 </html>
