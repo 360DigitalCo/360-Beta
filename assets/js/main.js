@@ -1,14 +1,14 @@
 /* ============================================================
-   360 — MAIN.JS V.2.0.3
+   360 — MAIN.JS V.3.0.0
    User chip with Gravatar + initials fallback, full dropdown
    ============================================================ */
 
 //CHANGE THE FOLLOWING TO CHANGE ALL THE PAGE'S VERSION!!
-const version = "V.2.0.3";
+const version = "3.0.0";
 
 //CHANGES THE FOOTER IN ALL PAGES!!
 const _sidebarVer = document.getElementById("sidebar-ver");
-if (_sidebarVer) _sidebarVer.textContent = "© " + new Date().getFullYear() + " 360 INC. · " + version;
+if (_sidebarVer) _sidebarVer.textContent = "© " + new Date().getFullYear() + " 360 INC. · " + "v." + version;
 
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
@@ -155,7 +155,7 @@ async function buildUserChip(user) {
      if (!confirmed) return;
    
      await supabaseClient.auth.signOut();
-     location.href = "/accounts?login&from=logout";
+     location.href = "/signin";
    });
 }
 
@@ -278,8 +278,8 @@ function closeAuth() {
   if (authError) authError.textContent = "";
 }
 
-if (signInBtn) signInBtn.onclick = () => location.href = "/account?signin&from=" + encodeURIComponent(location.pathname + location.search);
-if (signUpBtn) signUpBtn.onclick = () => location.href = "/account?signup&from=" + encodeURIComponent(location.pathname + location.search);
+if (signInBtn) signInBtn.onclick = () => location.href = "/signin?from=" + encodeURIComponent(location.pathname + location.search);
+if (signUpBtn) signUpBtn.onclick = () => location.href = "/signup?from=" + encodeURIComponent(location.pathname + location.search);
 if (authCloseBtn) authCloseBtn.onclick = closeAuth;
 
 if (authPopup) {
