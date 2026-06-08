@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-89NN1P6CEV"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-89NN1P6CEV');
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>360 — Claim Your Mail Address</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#3b82f6" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="360" />
+  <link rel="icon" type="image/png" href="/favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/wide.css" />
+  <link rel="stylesheet" href="/assets/css/cursor.css" />
+  <link rel="stylesheet" href="/assets/css/responsive.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Animated background orbs ── */
+    body.dark::before {
+      content: "";
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 20%, rgba(99,102,241,.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 80% 80%, rgba(14,165,233,.15) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .claim-wrap {
+      margin: 80px 20px;
+      width: 460px;
+      max-width: calc(100vw - 40px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .claim-card {
+      background: rgba(255,255,255,.97);
+      backdrop-filter: blur(22px);
+      border: 1px solid var(--br);
+      border-radius: 20px;
+      padding: 44px 40px 36px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.10), 0 4px 16px rgba(0,0,0,.05);
+      display: flex;
+      flex-direction: column;
+      animation: cardIn .42s cubic-bezier(.22,.68,0,1.1);
+    }
+    body.dark .claim-card {
+      background: rgba(9,9,20,.97);
+      border-color: rgba(255,255,255,.1);
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(26px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);   }
+    }
+
+    /* ── Header ── */
+    .claim-icon {
+      font-size: 48px;
+      text-align: center;
+      margin-bottom: 10px;
+      animation: iconBounce .6s cubic-bezier(.22,.68,0,1.3) .1s both;
+    }
+    @keyframes iconBounce {
+      from { opacity:0; transform: scale(.5) translateY(10px); }
+      to   { opacity:1; transform: scale(1)  translateY(0); }
+    }
+    .claim-title {
+      font-size: 24px;
+      font-weight: 900;
+      text-align: center;
+      color: var(--txt);
+      margin-bottom: 6px;
+      letter-spacing: -.02em;
+    }
+    body.dark .claim-title { color: var(--txtd); }
+
+    .claim-sub {
+      font-size: 14px;
+      text-align: center;
+      color: var(--mut);
+      margin-bottom: 28px;
+      line-height: 1.55;
+    }
+    body.dark .claim-sub { color: var(--mutd); }
+
+    /* ── Address preview pill ── */
+    .addr-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      border-radius: 12px;
+      border: 1.5px solid rgba(59,130,246,.28);
+      background: rgba(59,130,246,.06);
+      padding: 10px 16px;
+      margin-bottom: 24px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--a);
+      letter-spacing: -.01em;
+      min-height: 46px;
+      transition: border-color .2s, background .2s;
+    }
+    .addr-preview.valid {
+      border-color: rgba(16,185,129,.4);
+      background: rgba(16,185,129,.07);
+      color: #059669;
+    }
+    body.dark .addr-preview.valid { color: #34d399; }
+    .addr-preview.err-state {
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.06);
+      color: #ef4444;
+    }
+    .addr-username { color: inherit; }
+    .addr-domain   { color: inherit; opacity: .7; }
+    .addr-cursor {
+      display: inline-block;
+      width: 2px; height: 1.1em;
+      background: currentColor;
+      margin-left: 1px;
+      animation: blink .9s step-end infinite;
+      vertical-align: middle;
+      border-radius: 1px;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Field ── */
+    .claim-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .claim-field label {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em;
+      color: var(--mut);
+    }
+    body.dark .claim-field label { color: var(--mutd); }
+
+    .claim-input-wrap {
+      display: flex;
+      align-items: center;
+      border-radius: 10px;
+      border: 1.5px solid var(--br);
+      background: rgba(255,255,255,.75);
+      overflow: hidden;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    body.dark .claim-input-wrap {
+      background: rgba(255,255,255,.06);
+      border-color: rgba(255,255,255,.12);
+    }
+    .claim-input-wrap:focus-within {
+      border-color: var(--a);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+    }
+    .claim-input-wrap.invalid {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239,68,68,.12);
+    }
+    .claim-input-wrap.ok {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16,185,129,.12);
+    }
+    .claim-input-wrap input {
+      flex: 1;
+      padding: 12px 14px;
+      border: none;
+      background: transparent;
+      color: var(--txt);
+      font-size: 15px;
+      outline: none;
+      font-weight: 600;
+      letter-spacing: -.01em;
+    }
+    body.dark .claim-input-wrap input { color: var(--txtd); }
+    .claim-input-wrap input::placeholder { color: var(--mut); font-weight: 400; }
+    .claim-domain-suffix {
+      padding: 0 14px 0 4px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--mut);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    body.dark .claim-domain-suffix { color: var(--mutd); }
+
+    .claim-hint {
+      font-size: 12px;
+      color: var(--mut);
+      min-height: 16px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    body.dark .claim-hint { color: var(--mutd); }
+    .claim-hint.err { color: #ef4444; }
+    .claim-hint.ok  { color: #10b981; }
+    .claim-hint.checking { color: var(--a); }
+
+    /* ── Rules ── */
+    .claim-rules {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+      margin-bottom: 20px;
+    }
+    .rule-pill {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid var(--br);
+      background: rgba(148,163,184,.08);
+      color: var(--mut);
+      transition: background .2s, border-color .2s, color .2s;
+    }
+    body.dark .rule-pill { color: var(--mutd); border-color: rgba(255,255,255,.1); }
+    .rule-pill.ok { background: rgba(16,185,129,.09); border-color: rgba(16,185,129,.28); color: #059669; }
+    body.dark .rule-pill.ok { color: #34d399; }
+    .rule-pill.fail { background: rgba(239,68,68,.07); border-color: rgba(239,68,68,.22); color: #ef4444; }
+
+    /* ── Button ── */
+    .claim-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(110deg, var(--a), var(--a2));
+      color: #050816;
+      font-weight: 800;
+      font-size: 16px;
+      cursor: pointer;
+      transition: opacity .18s, transform .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      letter-spacing: -.01em;
+    }
+    .claim-btn:hover:not(:disabled) { opacity: .87; transform: translateY(-1px); }
+    .claim-btn:active:not(:disabled) { transform: translateY(0); }
+    .claim-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .claim-msg {
+      font-size: 13px;
+      text-align: center;
+      min-height: 18px;
+      margin-top: 12px;
+    }
+    .claim-msg.err { color: #ef4444; }
+    .claim-msg.ok  { color: #10b981; font-weight: 600; }
+
+    /* ── Already has address ── */
+    .already-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      text-align: center;
+      padding: 10px 0;
+    }
+    .already-icon { font-size: 52px; }
+    .already-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--txt);
+      letter-spacing: -.02em;
+    }
+    body.dark .already-title { color: var(--txtd); }
+    .already-addr {
+      padding: 10px 22px;
+      border-radius: 10px;
+      background: rgba(59,130,246,.07);
+      border: 1.5px solid rgba(59,130,246,.25);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--a);
+    }
+    .already-sub { font-size: 13px; color: var(--mut); max-width: 300px; line-height: 1.5; }
+    body.dark .already-sub { color: var(--mutd); }
+
+    .go-btn {
+      padding: 12px 28px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(110deg, var(--a), var(--a2));
+      color: #050816;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: opacity .18s, transform .15s;
+    }
+    .go-btn:hover { opacity: .87; transform: translateY(-1px); }
+
+    /* ── Sign-in gate ── */
+    .gate-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      text-align: center;
+      padding: 10px 0;
+    }
+    .gate-icon { font-size: 52px; }
+    .gate-title { font-size: 22px; font-weight: 800; color: var(--txt); }
+    body.dark .gate-title { color: var(--txtd); }
+    .gate-sub { font-size: 14px; color: var(--mut); max-width: 300px; line-height: 1.5; }
+    body.dark .gate-sub { color: var(--mutd); }
+    .gate-btn {
+      padding: 12px 28px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(110deg, var(--a), var(--a2));
+      color: #050816;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: opacity .18s, transform .15s;
+    }
+    .gate-btn:hover { opacity: .87; transform: translateY(-1px); }
+
+    /* ── Spinner ── */
+    .spin-icon {
+      display: inline-block;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div class="cursor-dot"></div>
+  <div class="cursor-trail"></div>
+  <div class="cursor-crosshair"></div>
+  <div class="cursor-blob"></div>
+
+  <button class="sidebar-toggle" id="sidebarToggle">☰ Menu</button>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-mark"></div>
+      <button id="settingsBtn">⚙</button>
+    </div>
+    <nav class="nav-list">
+      <div class="nav-item" data-href="/">Home</div>
+      <div class="nav-item" data-href="/ai">AI</div>
+      <div class="nav-item" data-href="/weather">Weather</div>
+      <div class="nav-item" data-href="/translator">Translator</div>
+      <div class="nav-item" data-href="/stocks">Stocks</div>
+      <div class="nav-item" data-href="/url-shortener">URL Shortener</div>
+      <div class="nav-item" data-href="/chat">Chat</div>
+      <div class="nav-item" data-href="/news">News</div>
+      <div class="nav-item" data-href="/apps">Apps</div>
+      <div class="nav-item" data-href="/games">Games</div>
+      <div class="nav-item active" data-href="/apps/360mail">360Mail</div>
+    </nav>
+    <div class="sidebar-footer"><span id="sidebar-ver">Loading...</span></div>
+  </aside>
+
+  <div class="overlay" id="overlay"></div>
+
+  <div class="settings-panel" id="settingsPanel">
+    <h3>Appearance</h3>
+    <div class="settings-label">Theme</div>
+    <div class="theme-swatches">
+      <div class="theme-option"><div class="swatch" data-theme="ocean"></div><span>Ocean</span></div>
+      <div class="theme-option"><div class="swatch" data-theme="midnight"></div><span>Midnight</span></div>
+      <div class="theme-option"><div class="swatch" data-theme="sunset"></div><span>Sunset</span></div>
+      <div class="theme-option"><div class="swatch" data-theme="mint"></div><span>Mint</span></div>
+      <div class="theme-option"><div class="swatch" data-theme="neon"></div><span>Neon</span></div>
+      <div class="theme-option"><div class="swatch" data-theme="mono"></div><span>Mono</span></div>
+    </div>
+    <div class="settings-label" style="margin-top:20px;">Mode</div>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <span style="font-size:14px;">Dark mode</span>
+      <input type="checkbox" id="darkToggle" />
+    </label>
+    <h3 style="margin-top:25px;">Legal</h3>
+    <a href="/privacypolicy" class="legal-link">🔒 Privacy Policy</a>
+    <a href="/tos" class="legal-link">📜 Terms of Service</a>
+  </div>
+
+  <div class="auth-top-right">
+    <button id="signInBtn" class="auth-btn">Sign In</button>
+    <button id="signUpBtn" class="auth-btn">Sign Up</button>
+    <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
+  </div>
+
+  <button id="installBtn" class="install-banner" style="display:none;">Install 360</button>
+
+  <!-- ── MAIN CARD ── -->
+  <div class="claim-wrap">
+    <div class="claim-card" id="claimCard">
+      <!-- content injected by JS -->
+      <div style="text-align:center;padding:40px 0;color:var(--mut);">
+        <span class="spin-icon" style="font-size:28px;">⏳</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/js/main.js"></script>
+  <script src="/assets/js/wide.js"></script>
+  <script src="/assets/js/cookie.js"></script>
+  <script src="/assets/js/cursor.js"></script>
+
+  <script>
+  (() => {
+    const sb = supabaseClient;
+    const card = document.getElementById("claimCard");
+
+    const USERNAME_RE = /^[a-zA-Z0-9_]{3,24}$/;
+
+    function esc(s) {
+      return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // ── Render: not signed in ──
+    function renderGate() {
+      card.innerHTML = `
+        <div class="gate-wrap">
+          <div class="gate-icon">✉️</div>
+          <div class="gate-title">Claim Your 360Mail</div>
+          <div class="gate-sub">Sign in to claim your free <strong>@360-search.com</strong> address and start sending and receiving mail.</div>
+          <button class="gate-btn" onclick="location.href='/account?signin&from=/apps/360mail-claim'">Sign In</button>
+          <div style="font-size:13px;color:var(--mut);margin-top:4px;">
+            No account? <a href="/account?signup&from=/apps/360mail-claim" style="color:var(--a);font-weight:600;">Sign up free</a>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Render: already has an address ──
+    function renderAlready(mailAddress) {
+      card.innerHTML = `
+        <div class="already-wrap">
+          <div class="already-icon">✅</div>
+          <div class="already-title">You're all set!</div>
+          <div class="already-addr">${esc(mailAddress)}</div>
+          <div class="already-sub">This is your 360Mail address. Head to your inbox to start sending and receiving messages.</div>
+          <button class="go-btn" onclick="location.href='/apps/360mail'">Open 360Mail →</button>
+        </div>
+      `;
+    }
+
+    // ── Render: claim form ──
+    function renderClaim(user) {
+      // Pre-fill suggestion from OAuth name or email
+      const suggestion = (
+        user.user_metadata?.full_name?.split(" ")[0] ||
+        user.user_metadata?.name?.split(" ")[0] ||
+        user.email?.split("@")[0] ||
+        ""
+      ).toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
+
+      card.innerHTML = `
+        <div class="claim-icon">✉️</div>
+        <div class="claim-title">Claim Your Mail Address</div>
+        <div class="claim-sub">
+          Choose a username to get your free <strong>@360-search.com</strong> inbox.<br>
+          This will also be your 360 username.
+        </div>
+
+        <div class="addr-preview" id="addrPreview">
+          <span class="addr-username" id="previewUser">${esc(suggestion) || "username"}</span>
+          <span class="addr-domain">@360-search.com</span>
+          <span class="addr-cursor" id="addrCursor"></span>
+        </div>
+
+        <div class="claim-field">
+          <label>Choose Your Username</label>
+          <div class="claim-input-wrap" id="inputWrap">
+            <input
+              type="text"
+              id="usernameInput"
+              placeholder="e.g. cooluser99"
+              maxlength="24"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              value="${esc(suggestion)}"
+            />
+            <span class="claim-domain-suffix">@360-search.com</span>
+          </div>
+          <div class="claim-hint" id="claimHint">Letters, numbers, and underscores only.</div>
+        </div>
+
+        <div class="claim-rules">
+          <div class="rule-pill" id="rule-len">📏 3–24 chars</div>
+          <div class="rule-pill" id="rule-chars">🔤 Letters/numbers/_</div>
+          <div class="rule-pill" id="rule-avail">🔍 Available</div>
+        </div>
+
+        <button class="claim-btn" id="claimBtn" disabled>
+          <span>✉</span> Claim Address
+        </button>
+        <div class="claim-msg" id="claimMsg"></div>
+
+        <div style="font-size:12px;text-align:center;color:var(--mut);margin-top:16px;line-height:1.5;">
+          By claiming, you agree to 360's
+          <a href="/tos" style="color:var(--a);">Terms of Service</a>.
+          Your address cannot be changed later.
+        </div>
+      `;
+
+      const input    = document.getElementById("usernameInput");
+      const inputWrap= document.getElementById("inputWrap");
+      const hint     = document.getElementById("claimHint");
+      const btn      = document.getElementById("claimBtn");
+      const msg      = document.getElementById("claimMsg");
+      const preview  = document.getElementById("addrPreview");
+      const previewU = document.getElementById("previewUser");
+      const cursor   = document.getElementById("addrCursor");
+
+      let checkTimer = null;
+      let isAvailable = false;
+
+      function updateRulePill(id, ok) {
+        const el = document.getElementById(id);
+        el.classList.toggle("ok", ok);
+        el.classList.toggle("fail", !ok);
+      }
+
+      function validate(val) {
+        const lenOk   = val.length >= 3 && val.length <= 24;
+        const charOk  = /^[a-zA-Z0-9_]*$/.test(val);
+        updateRulePill("rule-len",   lenOk);
+        updateRulePill("rule-chars", charOk);
+        return lenOk && charOk;
+      }
+
+      async function checkAvailability(val) {
+        const { data } = await sb.from("profiles").select("id").eq("username", val).maybeSingle();
+        return !data; // true = available
+      }
+
+      input.addEventListener("input", () => {
+        const val = input.value.trim();
+        msg.textContent = "";
+        msg.className = "claim-msg";
+
+        // Update preview
+        previewU.textContent = val || "username";
+        preview.classList.remove("valid", "err-state");
+        cursor.style.display = "";
+
+        // Validate format
+        const formatOk = validate(val);
+        inputWrap.classList.remove("invalid", "ok");
+        btn.disabled = true;
+        isAvailable = false;
+
+        if (!val) {
+          hint.textContent = "Letters, numbers, and underscores only.";
+          hint.className = "claim-hint";
+          updateRulePill("rule-avail", false);
+          document.getElementById("rule-avail").classList.remove("ok","fail");
+          return;
+        }
+
+        if (!formatOk) {
+          inputWrap.classList.add("invalid");
+          preview.classList.add("err-state");
+          cursor.style.display = "none";
+          hint.textContent = val.length > 24 ? "Too long — max 24 characters." : "Only letters, numbers, and underscores allowed.";
+          hint.className = "claim-hint err";
+          updateRulePill("rule-avail", false);
+          document.getElementById("rule-avail").classList.remove("ok","fail");
+          return;
+        }
+
+        // Format OK, check availability
+        hint.textContent = "Checking…";
+        hint.className = "claim-hint checking";
+        document.getElementById("rule-avail").classList.remove("ok","fail");
+
+        clearTimeout(checkTimer);
+        checkTimer = setTimeout(async () => {
+          const avail = await checkAvailability(val);
+          updateRulePill("rule-avail", avail);
+          isAvailable = avail;
+
+          if (avail) {
+            inputWrap.classList.add("ok");
+            preview.classList.add("valid");
+            cursor.style.display = "none";
+            hint.textContent = "✓ " + val + "@360-search.com is available!";
+            hint.className = "claim-hint ok";
+            btn.disabled = false;
+          } else {
+            inputWrap.classList.add("invalid");
+            preview.classList.add("err-state");
+            cursor.style.display = "none";
+            hint.textContent = "That username is already taken. Try another.";
+            hint.className = "claim-hint err";
+            btn.disabled = true;
+          }
+        }, 480);
+      });
+
+      // Trigger initial check if suggestion pre-filled
+      if (suggestion) {
+        // Fire a synthetic input event after a short delay
+        setTimeout(() => input.dispatchEvent(new Event("input")), 100);
+      }
+
+      // ── Submit ──
+      btn.addEventListener("click", async () => {
+        const val = input.value.trim().toLowerCase();
+        if (!validate(val) || !isAvailable) return;
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spin-icon">⏳</span> Claiming…`;
+        msg.textContent = "";
+
+        try {
+          // 1. Check once more server-side
+          const { data: existing } = await sb.from("profiles").select("id").eq("username", val).maybeSingle();
+          if (existing) {
+            hint.textContent = "Taken just now — try another.";
+            hint.className = "claim-hint err";
+            btn.innerHTML = `<span>✉</span> Claim Address`;
+            btn.disabled = false;
+            isAvailable = false;
+            updateRulePill("rule-avail", false);
+            return;
+          }
+
+          // 2. Upsert profile with username + derived mail address
+          const mailAddress = val + "@360-search.com";
+          const { error: upsertErr } = await sb.from("profiles").upsert(
+            { id: user.id, username: val, email: mailAddress },
+            { onConflict: "id" }
+          );
+
+          if (upsertErr) throw upsertErr;
+
+          // 3. Update auth user metadata too (so main.js picks it up)
+          await sb.auth.updateUser({ data: { username: val } });
+
+          // 4. Show success
+          msg.textContent = "✓ Address claimed!";
+          msg.className = "claim-msg ok";
+
+          setTimeout(() => renderAlready(mailAddress), 900);
+
+        } catch (err) {
+          msg.textContent = err.message || "Something went wrong. Please try again.";
+          msg.className = "claim-msg err";
+          btn.innerHTML = `<span>✉</span> Claim Address`;
+          btn.disabled = false;
+        }
+      });
+
+      // Allow Enter key
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter" && !btn.disabled) btn.click();
+      });
+    }
+
+    // ── Boot ──
+    (async () => {
+      const { data: { session } } = await sb.auth.getSession();
+
+      if (!session) {
+        renderGate();
+        return;
+      }
+
+      const user = session.user;
+
+      // Check if they already have a username/mail
+      const { data: profile } = await sb.from("profiles")
+        .select("username, email")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const existingUsername = profile?.username || user.user_metadata?.username;
+      const existingMail = profile?.email || (existingUsername ? existingUsername.toLowerCase() + "@360-search.com" : null);
+
+      if (existingUsername) {
+        // Already claimed — show info & redirect button
+        renderAlready(existingMail || existingUsername + "@360-search.com");
+        return;
+      }
+
+      // Needs to claim
+      renderClaim(user);
+    })();
+
+    // Auth state changes
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") renderGate();
+    });
+  })();
+  </script>
+</body>
+</html>
