@@ -793,7 +793,18 @@
     <div class="mail-gate-icon">✉️</div>
     <div class="mail-gate-title">360Mail</div>
     <div class="mail-gate-sub">Sign in to access your @360-search.com inbox and send mail to anyone.</div>
-    <button class="mail-gate-btn" onclick="location.href='/account?signin&from=/360mail'">Sign In</button>
+    <button class="mail-gate-btn" onclick="location.href='/account?signin&from=/apps/360mail'">Sign In</button>
+    <div style="font-size:13px;color:var(--mut);margin-top:8px;">
+      No account? <a href="/account?signup&from=/apps/360mail" style="color:var(--a);font-weight:600;">Sign up free</a>
+    </div>
+  </div>
+
+  <!-- ── CLAIM GATE (shown when signed in but no username) ── -->
+  <div class="mail-gate" id="claimGate" style="display:none;">
+    <div class="mail-gate-icon">📬</div>
+    <div class="mail-gate-title">One More Step</div>
+    <div class="mail-gate-sub">Claim your free <strong>@360-search.com</strong> mail address to start using 360Mail.</div>
+    <button class="mail-gate-btn" onclick="location.href='/apps/360mail-claim'">Claim My Address →</button>
   </div>
 
   <!-- ── MAIN MAIL APP ── -->
@@ -932,6 +943,7 @@
 
     // ── DOM refs ──
     const mailGate      = document.getElementById("mailGate");
+    const claimGate     = document.getElementById("claimGate");
     const mailApp       = document.getElementById("mailApp");
     const listScroll    = document.getElementById("mailListScroll");
     const skeletons     = document.getElementById("mailSkeletons");
@@ -955,6 +967,13 @@
       }
       currentUser = session.user;
       await loadProfile();
+
+      // If no 360mail address can be resolved, send to claim page
+      if (!userEmail || !userEmail.endsWith("@360-search.com")) {
+        claimGate.style.display = "flex";
+        return;
+      }
+
       mailApp.style.display = "flex";
       setupFolders();
       setupCompose();
@@ -966,6 +985,7 @@
     sb.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         mailGate.style.display = "flex";
+        claimGate.style.display = "none";
         mailApp.style.display = "none";
       }
     });
@@ -977,9 +997,19 @@
         .eq("id", currentUser.id)
         .maybeSingle();
 
-      userEmail = profile?.email
-        || (profile?.username ? profile.username.toLowerCase() + "@360-search.com" : null)
-        || currentUser.email;
+      // Prefer profile.email if it's a @360-search.com address
+      if (profile?.email && profile.email.endsWith("@360-search.com")) {
+        userEmail = profile.email;
+      } else if (profile?.username) {
+        // Derive from username
+        userEmail = profile.username.toLowerCase() + "@360-search.com";
+      } else if (currentUser.user_metadata?.username) {
+        // Fallback: auth metadata username
+        userEmail = currentUser.user_metadata.username.toLowerCase() + "@360-search.com";
+      } else {
+        // No 360mail address — user needs to claim
+        userEmail = null;
+      }
 
       addressPill.textContent = userEmail || "No address";
     }
