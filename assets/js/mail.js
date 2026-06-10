@@ -111,7 +111,7 @@
   function renderList() {
     const scroll = $("mailListScroll");
     if (!filteredEmails.length) {
-      const icons = { inbox:"📭", sent:"📤", starred:"⭐", category:"📂" };
+      const icons = { inbox:"📭", sent:"📨", starred:"⭐", category:"📂" };
       const msgs  = { inbox:"No messages yet", sent:"No sent messages", starred:"Nothing starred", category:"No messages from these senders" };
       scroll.innerHTML = `<div class="mail-empty">
         <div class="mail-empty-icon">${icons[currentFolder]||"📭"}</div>
