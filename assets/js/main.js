@@ -10,6 +10,9 @@ const version = "3.0.0";
 const _sidebarVer = document.getElementById("sidebar-ver");
 if (_sidebarVer) _sidebarVer.textContent = "© " + new Date().getFullYear() + " 360 INC. · " + "v." + version;
 
+//Get's the current page's URL (Not including domain)
+let currentUrl = window.location.pathname + window.location.search + window.location.hash;
+
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const body = document.body;
@@ -278,8 +281,8 @@ function closeAuth() {
   if (authError) authError.textContent = "";
 }
 
-if (signInBtn) signInBtn.onclick = () => location.href = "/signin?from=" + encodeURIComponent(location.pathname + location.search);
-if (signUpBtn) signUpBtn.onclick = () => location.href = "/signup?from=" + encodeURIComponent(location.pathname + location.search);
+if (signInBtn) signInBtn.onclick = () => location.href = "/signin?from=" + currentURL;
+if (signUpBtn) signUpBtn.onclick = () => location.href = "/signup?from=" + currentURL;
 if (authCloseBtn) authCloseBtn.onclick = closeAuth;
 
 if (authPopup) {
@@ -332,7 +335,7 @@ if (googleBtn) {
 if (signOutBtn) {
   signOutBtn.onclick = async () => {
     await supabaseClient.auth.signOut();
-    location.href = "/account?signout&from=logout";
+    location.href = "/signin?from=" + currentURL;
   };
 }
 
