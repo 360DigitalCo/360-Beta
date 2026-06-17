@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="/assets/css/responsive.css"/>
   <link rel="stylesheet" href="/assets/css/mail.css"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 </head>
 <body>
 
@@ -138,6 +139,11 @@
         <span class="fi-icon">⭐</span><span class="fi-name">Starred</span>
         <button class="folder-reload-btn" title="Reload">↻</button>
       </div>
+      <div class="folder-item" data-folder="scheduled" data-builtin="1">
+        <span class="fi-icon">⏰</span><span class="fi-name">Scheduled</span>
+        <button class="folder-reload-btn" title="Reload">↻</button>
+        <span class="folder-badge" id="scheduledBadge" style="display:none;"></span>
+      </div>
 
       <div class="folder-label" id="customFolderLabel" style="display:none;">
         Categories
@@ -192,11 +198,13 @@
             <div class="mrh-addr" id="rdAddr"></div>
             <div class="mrh-time" id="rdTime"></div>
           </div>
+          <div class="mrh-badges" id="rdBadges"></div>
         </div>
         <div class="mail-read-actions">
           <button class="mra-btn" id="rdReply">↩ Reply</button>
           <button class="mra-btn" id="rdForward">→ Forward</button>
           <button class="mra-btn" id="rdStar">☆ Star</button>
+          <button class="mra-btn danger" id="rdCancelSchedule" style="display:none;">⏹ Cancel send</button>
           <button class="mra-btn danger" id="rdDelete">🗑 Delete</button>
           <button class="mra-btn" id="rdBack" style="display:none;">← Back</button>
         </div>
@@ -216,9 +224,62 @@
         <div class="compose-field"><label>To</label><input type="email" id="cTo" placeholder="recipient@example.com"/></div>
         <div class="compose-field"><label>Subject</label><input type="text" id="cSubject" placeholder="Subject"/></div>
       </div>
-      <div class="compose-body-wrap"><textarea class="compose-body" id="cBody" placeholder="Write your message…"></textarea></div>
+      <div class="compose-toolbar">
+        <button class="fmt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+        <button class="fmt-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+        <button class="fmt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+        <button class="fmt-btn" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+        <span class="fmt-sep"></span>
+        <select class="fmt-select" id="cFontSize" title="Font size">
+          <option value="2">Small</option>
+          <option value="3" selected>Normal</option>
+          <option value="5">Large</option>
+          <option value="7">Huge</option>
+        </select>
+        <span class="fmt-sep"></span>
+        <button class="fmt-btn" data-cmd="insertUnorderedList" title="Bullet list">≡</button>
+        <button class="fmt-btn" data-cmd="insertOrderedList" title="Numbered list">①</button>
+        <button class="fmt-btn" data-cmd="createLink" title="Insert link">🔗</button>
+        <button class="fmt-btn fmt-btn-html" id="cHtmlToggle" title="Edit raw HTML source">&lt;/&gt; HTML</button>
+      </div>
+      <div class="compose-body-wrap">
+        <div class="compose-editor" id="cEditor" contenteditable="true" data-placeholder="Write your message…"></div>
+        <textarea class="compose-html-source" id="cHtmlSource" spellcheck="false" placeholder="<p>Write raw HTML here…</p>"></textarea>
+      </div>
+      <div class="compose-attach-row">
+        <button class="c-attach-btn" id="cAttachBtn">📎 Attach files</button>
+        <input type="file" id="cAttachInput" multiple style="display:none;"/>
+        <div id="cAttachList" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+      <div class="compose-options">
+        <div class="compose-opt-row">
+          <div class="compose-opt-text">
+            <div class="compose-opt-label">⏳ Email expiration</div>
+            <div class="compose-opt-sub">Automatically delete this email after a set date</div>
+            <div class="compose-opt-input" id="cExpireInputWrap">
+              <input type="datetime-local" id="cExpireAt"/>
+            </div>
+          </div>
+          <label class="opt-switch"><input type="checkbox" id="cExpireToggle"/><span class="slider"></span></label>
+        </div>
+        <div class="compose-opt-row">
+          <div class="compose-opt-text">
+            <div class="compose-opt-label">🔥 Self-destruct after reading</div>
+            <div class="compose-opt-sub">Deleted from the recipient's inbox once opened</div>
+          </div>
+          <label class="opt-switch"><input type="checkbox" id="cSelfDestructToggle"/><span class="slider"></span></label>
+        </div>
+        <div class="compose-opt-row" id="cScheduleRow" style="display:none;border-bottom:none;">
+          <div class="compose-opt-text">
+            <div class="compose-opt-input show">
+              <input type="datetime-local" id="cScheduleAt"/>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="compose-footer">
         <button class="compose-send-btn" id="cSendBtn"><span>✈</span> Send</button>
+        <button class="compose-schedule-btn" id="cScheduleBtn"><span>⏰</span> Schedule</button>
         <span class="compose-status" id="cStatus"></span>
       </div>
     </div>
@@ -292,499 +353,6 @@
   <script src="/assets/js/cookie.js"></script>
   <script src="/assets/js/cursor.js"></script>
 
-  <script>
-  (() => {
-    const sb = supabaseClient;
-    const SB_URL  = "https://wiswfpfsjiowtrdyqpxy.supabase.co";
-    const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpc3dmcGZzamlvd3RyZHlxcHh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzg4OTcsImV4cCI6MjA4MzkxNDg5N30.z_4FtM2c8UwgrRlafPYjolQuod4IoHQats95XHio1zM";
-
-    let user         = null;
-    let mailAddress  = null;   // username@360-search.com — THE canonical mail key
-    let currentFolder= "inbox";
-    let currentCatId = null;   // set when viewing a custom category
-    let allEmails    = [];
-    let filteredEmails=[];
-    let selectedId   = null;
-    let deleteTarget = null;
-    let categories   = [];     // [{id, name, color}]
-    let rules        = {};     // {catId: [senderEmail, ...]}
-    let newCatRules  = [];     // staging for new-category modal
-    let editCatId    = null;
-    let editCatRules = [];
-
-    // ── DOM ──
-    const mailGate    = document.getElementById("mailGate");
-    const mailApp     = document.getElementById("mailApp");
-    const listScroll  = document.getElementById("mailListScroll");
-    const skeletons   = document.getElementById("mailSkeletons");
-    const listTitle   = document.getElementById("listTitle");
-    const listCount   = document.getElementById("listCount");
-    const inboxBadge  = document.getElementById("inboxBadge");
-    const noSelect    = document.getElementById("noMailSelected");
-    const readContent = document.getElementById("mailReadContent");
-    const addrPill    = document.getElementById("myAddressPill");
-    const searchInput = document.getElementById("mailSearch");
-    const composeModal= document.getElementById("composeModal");
-    const customList  = document.getElementById("customFolderList");
-    const rdBack      = document.getElementById("rdBack");
-
-    // ── Boot ──
-    (async () => {
-      const { data: { session } } = await sb.auth.getSession();
-      if (!session) { mailGate.style.display = "flex"; return; }
-      user = session.user;
-      await loadProfile();
-      mailApp.style.display = "flex";
-      setupFolderClicks();
-      setupCompose();
-      setupSearch();
-      setupReload();
-      setupCategoryModals();
-      setupRealtime();
-      await loadCategories();
-      await loadMail();
-    })();
-
-    sb.auth.onAuthStateChange((ev, sess) => {
-      if (ev === "SIGNED_OUT") { mailGate.style.display="flex"; mailApp.style.display="none"; }
-    });
-
-    // ── Profile ──
-    async function loadProfile() {
-      const { data: p } = await sb.from("profiles").select("mail_address,username").eq("id", user.id).maybeSingle();
-      mailAddress = p?.mail_address
-        || (p?.username ? p.username.toLowerCase().replace(/\s+/g,"") + "@360-search.com" : null)
-        || user.email;
-      addrPill.textContent = mailAddress || "No address";
-    }
-
-    // ── Load mail ──
-    async function loadMail() {
-      if (!mailAddress) return;
-      skeletons.style.display = "block";
-      const { data, error } = await sb.from("inbox")
-        .select("*")
-        .eq("owner_email", mailAddress)
-        .order("received_at", { ascending: false });
-      skeletons.style.display = "none";
-      if (error) {
-        listScroll.innerHTML = `<div class="mail-empty"><div class="mail-empty-icon">⚠️</div><div class="mail-empty-text">Failed to load</div><div class="mail-empty-sub">${esc(error.message)}</div></div>`;
-        return;
-      }
-      allEmails = data || [];
-      updateBadge();
-      applyFilter();
-    }
-
-    function updateBadge() {
-      const n = allEmails.filter(e => e.direction === "in" && !e.read).length;
-      inboxBadge.textContent = n > 99 ? "99+" : n;
-      inboxBadge.style.display = n > 0 ? "flex" : "none";
-    }
-
-    // ── Filter ──
-    function applyFilter() {
-      const q = searchInput.value.trim().toLowerCase();
-      let list = [...allEmails];
-
-      if (currentFolder === "inbox")   list = list.filter(e => e.direction === "in");
-      else if (currentFolder === "sent")    list = list.filter(e => e.direction === "out");
-      else if (currentFolder === "starred") list = list.filter(e => e.starred);
-      else if (currentFolder === "category" && currentCatId) {
-        const senders = (rules[currentCatId] || []).map(s => s.toLowerCase());
-        list = list.filter(e => e.direction === "in" && senders.includes((e.from_addr||"").toLowerCase()));
-      }
-
-      if (q) list = list.filter(e =>
-        (e.subject||"").toLowerCase().includes(q) ||
-        (e.from_addr||"").toLowerCase().includes(q) ||
-        (e.to_addr||"").toLowerCase().includes(q) ||
-        (e.body_text||"").toLowerCase().includes(q)
-      );
-
-      filteredEmails = list;
-      listCount.textContent = list.length;
-      renderList();
-    }
-
-    function renderList() {
-      if (!filteredEmails.length) {
-        const icons = {inbox:"📭",sent:"📤",starred:"⭐",category:"📂"};
-        const msgs  = {inbox:"No messages yet",sent:"No sent messages",starred:"Nothing starred",category:"No messages from these senders"};
-        listScroll.innerHTML = `<div class="mail-empty">
-          <div class="mail-empty-icon">${icons[currentFolder]||"📭"}</div>
-          <div class="mail-empty-text">${msgs[currentFolder]||"Empty"}</div>
-          <div class="mail-empty-sub">${searchInput.value?"Try a different search":""}</div>
-        </div>`;
-        return;
-      }
-      listScroll.innerHTML = filteredEmails.map(e => {
-        const unread  = e.direction==="in" && !e.read;
-        const active  = e.id === selectedId;
-        const display = e.direction==="out" ? (e.to_addr||"") : (e.from_addr||"");
-        const preview = e.body_text || stripHtml(e.body_html||"") || "";
-        return `<div class="mail-item${unread?" unread":""}${active?" active":""}" data-id="${e.id}">
-          <button class="mi-star${e.starred?" starred":""}" data-id="${e.id}">★</button>
-          <div class="mi-row1">
-            <span class="mi-from">${esc(display)}</span>
-            <span class="mi-time">${relTime(e.received_at)}</span>
-          </div>
-          <div class="mi-subject">${esc(e.subject||"(no subject)")}</div>
-          <div class="mi-preview">${esc(preview.slice(0,90))}</div>
-        </div>`;
-      }).join("");
-
-      listScroll.querySelectorAll(".mail-item").forEach(el => {
-        el.addEventListener("click", ev => { if(ev.target.classList.contains("mi-star")) return; openEmail(el.dataset.id); });
-      });
-      listScroll.querySelectorAll(".mi-star").forEach(btn => {
-        btn.addEventListener("click", ev => { ev.stopPropagation(); toggleStar(btn.dataset.id); });
-      });
-    }
-
-    // ── Open email ──
-    async function openEmail(id) {
-      selectedId = id;
-      renderList();
-      const e = allEmails.find(x => x.id === id);
-      if (!e) return;
-      if (!e.read && e.direction === "in") {
-        e.read = true;
-        await sb.from("inbox").update({ read: true }).eq("id", id);
-        updateBadge();
-      }
-      document.getElementById("rdSubject").textContent = e.subject || "(no subject)";
-      const isSent = e.direction === "out";
-      document.getElementById("rdFrom").textContent = isSent ? "To: "+(e.to_addr||"") : "From: "+(e.from_addr||"");
-      document.getElementById("rdAddr").textContent = isSent ? "" : "→ "+(e.to_addr||"");
-      document.getElementById("rdTime").textContent = fmtDate(e.received_at);
-      document.getElementById("rdStar").textContent = e.starred ? "★ Unstar" : "☆ Star";
-      const body = document.getElementById("rdBody");
-      if (e.body_html) body.innerHTML = `<div class="mail-body-html">${e.body_html}</div>`;
-      else if (e.body_text) body.innerHTML = `<pre class="mail-body-plain">${esc(e.body_text)}</pre>`;
-      else body.innerHTML = `<div class="mail-body-plain" style="opacity:.4">No message body.</div>`;
-      noSelect.style.display = "none";
-      readContent.style.display = "flex";
-      rdBack.style.display = window.innerWidth < 900 ? "flex" : "none";
-      if (window.innerWidth < 900) {
-        document.getElementById("mailReadPane").classList.add("show");
-        document.getElementById("mailListPanel").classList.remove("show");
-      }
-      document.getElementById("rdReply").onclick = () => openCompose(e.from_addr||"","Re: "+(e.subject||""));
-      document.getElementById("rdForward").onclick = () => openCompose("","Fwd: "+(e.subject||""),"\n\n--- Forwarded ---\nFrom: "+(e.from_addr||"")+"\n\n"+(e.body_text||stripHtml(e.body_html||"")));
-      document.getElementById("rdStar").onclick = () => toggleStar(id);
-      document.getElementById("rdDelete").onclick = () => triggerDelete(id);
-    }
-
-    function hideReadPane() { noSelect.style.display="flex"; readContent.style.display="none"; }
-
-    rdBack.addEventListener("click", () => {
-      document.getElementById("mailReadPane").classList.remove("show");
-      document.getElementById("mailListPanel").classList.add("show");
-    });
-
-    // ── Star ──
-    async function toggleStar(id) {
-      const e = allEmails.find(x => x.id === id);
-      if (!e) return;
-      e.starred = !e.starred;
-      await sb.from("inbox").update({ starred: e.starred }).eq("id", id);
-      renderList();
-      if (selectedId === id) document.getElementById("rdStar").textContent = e.starred ? "★ Unstar" : "☆ Star";
-      if (currentFolder === "starred") applyFilter();
-    }
-
-    // ── Delete ──
-    function triggerDelete(id) {
-      deleteTarget = id;
-      document.getElementById("confirmOverlay").classList.add("open");
-    }
-    document.getElementById("confirmCancel").onclick = () => { document.getElementById("confirmOverlay").classList.remove("open"); deleteTarget=null; };
-    document.getElementById("confirmDelete").onclick = async () => {
-      if (!deleteTarget) return;
-      await sb.from("inbox").delete().eq("id", deleteTarget);
-      allEmails = allEmails.filter(e => e.id !== deleteTarget);
-      if (selectedId === deleteTarget) { selectedId=null; hideReadPane(); }
-      deleteTarget = null;
-      document.getElementById("confirmOverlay").classList.remove("open");
-      updateBadge(); applyFilter();
-    };
-
-    // ── Search ──
-    function setupSearch() { searchInput.addEventListener("input", applyFilter); }
-
-    // ── Folder clicks ──
-    function setupFolderClicks() {
-      document.querySelectorAll(".folder-item[data-builtin]").forEach(el => {
-        el.addEventListener("click", ev => {
-          if (ev.target.classList.contains("folder-reload-btn")) return;
-          setFolder(el.dataset.folder, null, el.querySelector(".fi-name")?.textContent || el.dataset.folder);
-        });
-      });
-    }
-
-    function setFolder(folder, catId, title) {
-      currentFolder = folder;
-      currentCatId  = catId || null;
-      listTitle.textContent = title;
-      selectedId = null;
-      hideReadPane();
-      document.querySelectorAll(".folder-item").forEach(f => f.classList.remove("active"));
-      const target = catId
-        ? document.querySelector(`.folder-item[data-cat-id="${catId}"]`)
-        : document.querySelector(`.folder-item[data-folder="${folder}"]`);
-      if (target) target.classList.add("active");
-      applyFilter();
-    }
-
-    // ── Reload buttons ──
-    function setupReload() {
-      // per-folder reload in sidebar
-      document.querySelectorAll(".folder-reload-btn").forEach(btn => {
-        btn.addEventListener("click", async ev => {
-          ev.stopPropagation();
-          spinBtn(btn);
-          await loadMail();
-        });
-      });
-      // top-of-list reload
-      document.getElementById("listReloadBtn").addEventListener("click", async () => {
-        spinBtn(document.getElementById("listReloadBtn"));
-        await loadMail();
-      });
-    }
-
-    function spinBtn(btn) {
-      btn.classList.add("spinning");
-      setTimeout(() => btn.classList.remove("spinning"), 500);
-    }
-
-    // ── Realtime ──
-    function setupRealtime() {
-      if (!mailAddress) return;
-      sb.channel("inbox_rt")
-        .on("postgres_changes", { event:"INSERT", schema:"public", table:"inbox", filter:`owner_email=eq.${mailAddress}` }, payload => {
-          allEmails.unshift(payload.new);
-          updateBadge();
-          applyFilter();
-        })
-        .subscribe();
-    }
-
-    // ── Compose ──
-    function setupCompose() {
-      document.getElementById("composeBtn").onclick = () => openCompose();
-      document.getElementById("composeClose").onclick = closeCompose;
-      document.getElementById("cSendBtn").onclick = sendMail;
-    }
-    function openCompose(to="",subject="",body="") {
-      document.getElementById("cTo").value=to;
-      document.getElementById("cSubject").value=subject;
-      document.getElementById("cBody").value=body;
-      document.getElementById("cStatus").textContent="";
-      document.getElementById("cSendBtn").disabled=false;
-      composeModal.classList.add("open");
-      setTimeout(()=>document.getElementById("cTo").focus(),80);
-    }
-    function closeCompose() { composeModal.classList.remove("open"); }
-    async function sendMail() {
-      const to=document.getElementById("cTo").value.trim();
-      const subject=document.getElementById("cSubject").value.trim();
-      const text=document.getElementById("cBody").value.trim();
-      const btn=document.getElementById("cSendBtn");
-      const status=document.getElementById("cStatus");
-      if (!to||!subject||!text) { status.textContent="To, subject, and message required."; status.className="compose-status err"; return; }
-      btn.disabled=true; btn.innerHTML="<span>⏳</span> Sending…"; status.textContent="";
-      try {
-        const { data:{ session } } = await sb.auth.getSession();
-        const res = await fetch(`${SB_URL}/functions/v1/send-email`,{
-          method:"POST",
-          headers:{"Content-Type":"application/json","Authorization":`Bearer ${session.access_token}`,"apikey":SB_ANON},
-          body:JSON.stringify({to,subject,text})
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error?.message||json.error||"Send failed");
-        status.textContent="Sent ✓"; status.className="compose-status ok";
-        btn.innerHTML="<span>✈</span> Send"; btn.disabled=false;
-        setTimeout(closeCompose,1200);
-        await loadMail();
-      } catch(err) {
-        status.textContent=err.message; status.className="compose-status err";
-        btn.innerHTML="<span>✈</span> Send"; btn.disabled=false;
-      }
-    }
-
-    // ── Categories ──
-    async function loadCategories() {
-      if (!mailAddress) return;
-      const { data: cats } = await sb.from("mail_categories").select("*").eq("owner_email", mailAddress).order("created_at");
-      categories = cats || [];
-      if (categories.length > 0) {
-        const { data: ruleRows } = await sb.from("mail_category_rules").select("*").eq("owner_email", mailAddress);
-        rules = {};
-        (ruleRows||[]).forEach(r => {
-          if (!rules[r.category_id]) rules[r.category_id] = [];
-          rules[r.category_id].push(r.sender_email);
-        });
-      }
-      renderCategoryFolders();
-    }
-
-    function renderCategoryFolders() {
-      customList.innerHTML = "";
-      categories.forEach(cat => {
-        const div = document.createElement("div");
-        div.className = "folder-item";
-        div.dataset.catId = cat.id;
-        div.dataset.folder = "category";
-        div.innerHTML = `
-          <span class="fi-icon" style="color:${esc(cat.color)}">●</span>
-          <span class="fi-name">${esc(cat.name)}</span>
-          <button class="folder-reload-btn" title="Reload">↻</button>
-          <button class="folder-del-btn" title="Edit">✎</button>
-        `;
-        div.addEventListener("click", ev => {
-          if (ev.target.classList.contains("folder-del-btn")) { openEditCat(cat.id); return; }
-          if (ev.target.classList.contains("folder-reload-btn")) { spinBtn(ev.target); loadMail(); return; }
-          setFolder("category", cat.id, cat.name);
-        });
-        customList.appendChild(div);
-      });
-
-      // Show "Categories" label only when categories exist
-      const label = document.getElementById("customFolderLabel");
-      label.style.display = categories.length > 0 ? "flex" : "none";
-      if (categories.length > 0) {
-        label.innerHTML = `Categories <button class="folder-add-btn" id="addCategoryBtn2" title="Add category">＋</button>`;
-        document.getElementById("addCategoryBtn2").onclick = openNewCatModal;
-      }
-
-      // Attach reload to any newly rendered reload buttons
-      customList.querySelectorAll(".folder-reload-btn").forEach(btn => {
-        btn.addEventListener("click", async ev => { ev.stopPropagation(); spinBtn(btn); await loadMail(); });
-      });
-    }
-
-    // ── New category modal ──
-    function setupCategoryModals() {
-      document.getElementById("addCategoryBtn").onclick = openNewCatModal;
-      document.getElementById("addCategoryBtnAlt").onclick = openNewCatModal;
-
-      document.getElementById("catModalCancel").onclick = () => document.getElementById("catModal").classList.remove("open");
-      document.getElementById("catModalSave").onclick = saveNewCategory;
-      document.getElementById("ruleAddBtn").onclick = () => addRuleToList(document.getElementById("ruleInput"), newCatRules, "ruleList");
-      document.getElementById("ruleInput").addEventListener("keydown", e => { if (e.key==="Enter") addRuleToList(document.getElementById("ruleInput"),newCatRules,"ruleList"); });
-
-      document.getElementById("catEditCancel").onclick = () => document.getElementById("catEditModal").classList.remove("open");
-      document.getElementById("catEditSave").onclick = saveEditCategory;
-      document.getElementById("catEditDelete").onclick = deleteCategory;
-      document.getElementById("editRuleAddBtn").onclick = () => addRuleToList(document.getElementById("editRuleInput"), editCatRules, "editRuleList");
-      document.getElementById("editRuleInput").addEventListener("keydown", e => { if (e.key==="Enter") addRuleToList(document.getElementById("editRuleInput"),editCatRules,"editRuleList"); });
-    }
-
-    function openNewCatModal() {
-      newCatRules = [];
-      document.getElementById("catName").value = "";
-      document.getElementById("catColor").value = "#6366f1";
-      document.getElementById("ruleList").innerHTML = "";
-      document.getElementById("ruleInput").value = "";
-      document.getElementById("catModal").classList.add("open");
-      setTimeout(() => document.getElementById("catName").focus(), 80);
-    }
-
-    function addRuleToList(input, arr, listId) {
-      const val = input.value.trim().toLowerCase();
-      if (!val || arr.includes(val)) { input.value=""; return; }
-      arr.push(val);
-      input.value = "";
-      renderRuleList(listId, arr, (rem) => { arr.splice(arr.indexOf(rem),1); renderRuleList(listId,arr,(r2)=>{}); });
-    }
-
-    function renderRuleList(listId, arr, onRemove) {
-      const el = document.getElementById(listId);
-      el.innerHTML = arr.map(s => `
-        <div class="rule-item" data-sender="${esc(s)}">
-          <span>${esc(s)}</span>
-          <button class="rule-remove" data-sender="${esc(s)}">✕</button>
-        </div>`).join("");
-      el.querySelectorAll(".rule-remove").forEach(btn => {
-        btn.onclick = () => onRemove(btn.dataset.sender);
-      });
-    }
-
-    async function saveNewCategory() {
-      const name  = document.getElementById("catName").value.trim();
-      const color = document.getElementById("catColor").value;
-      if (!name) return;
-      const { data: cat, error } = await sb.from("mail_categories")
-        .insert({ owner_email: mailAddress, name, color })
-        .select().maybeSingle();
-      if (error || !cat) return;
-      categories.push(cat);
-      rules[cat.id] = [...newCatRules];
-      if (newCatRules.length) {
-        await sb.from("mail_category_rules").insert(
-          newCatRules.map(s => ({ category_id: cat.id, owner_email: mailAddress, sender_email: s }))
-        );
-      }
-      document.getElementById("catModal").classList.remove("open");
-      renderCategoryFolders();
-    }
-
-    function openEditCat(catId) {
-      editCatId = catId;
-      editCatRules = [...(rules[catId] || [])];
-      const cat = categories.find(c => c.id === catId);
-      document.getElementById("catEditName").value = cat.name;
-      document.getElementById("catEditColor").value = cat.color;
-      renderRuleList("editRuleList", editCatRules, rem => { editCatRules.splice(editCatRules.indexOf(rem),1); renderRuleList("editRuleList",editCatRules,()=>{}); });
-      document.getElementById("editRuleInput").value = "";
-      document.getElementById("catEditModal").classList.add("open");
-    }
-
-    async function saveEditCategory() {
-      const name  = document.getElementById("catEditName").value.trim();
-      const color = document.getElementById("catEditColor").value;
-      if (!name || !editCatId) return;
-      await sb.from("mail_categories").update({ name, color }).eq("id", editCatId);
-      // replace rules
-      await sb.from("mail_category_rules").delete().eq("category_id", editCatId);
-      if (editCatRules.length) {
-        await sb.from("mail_category_rules").insert(
-          editCatRules.map(s => ({ category_id: editCatId, owner_email: mailAddress, sender_email: s }))
-        );
-      }
-      const cat = categories.find(c => c.id === editCatId);
-      if (cat) { cat.name = name; cat.color = color; }
-      rules[editCatId] = [...editCatRules];
-      document.getElementById("catEditModal").classList.remove("open");
-      renderCategoryFolders();
-      if (currentCatId === editCatId) { listTitle.textContent = name; applyFilter(); }
-    }
-
-    async function deleteCategory() {
-      if (!editCatId) return;
-      await sb.from("mail_categories").delete().eq("id", editCatId);
-      categories = categories.filter(c => c.id !== editCatId);
-      delete rules[editCatId];
-      document.getElementById("catEditModal").classList.remove("open");
-      if (currentFolder === "category" && currentCatId === editCatId) setFolder("inbox", null, "Inbox");
-      renderCategoryFolders();
-    }
-
-    // ── Utils ──
-    function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-    function stripHtml(h){ const d=document.createElement("div"); d.innerHTML=h; return d.textContent||d.innerText||""; }
-    function relTime(ts){
-      const d=Math.floor((Date.now()-new Date(ts).getTime())/1000);
-      if(d<60) return "just now";
-      if(d<3600) return Math.floor(d/60)+"m ago";
-      if(d<86400) return Math.floor(d/3600)+"h ago";
-      if(d<604800) return Math.floor(d/86400)+"d ago";
-      return new Date(ts).toLocaleDateString(undefined,{month:"short",day:"numeric"});
-    }
-    function fmtDate(ts){ return new Date(ts).toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}); }
-  })();
-  </script>
+  <script src="/assets/js/mail.js"></script>
 </body>
 </html>
