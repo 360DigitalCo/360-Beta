@@ -25,6 +25,9 @@
 
   // ── DOM helpers ────────────────────────────────────────────
   const $ = id => document.getElementById(id);
+  // Null-safe style setter — avoids "Cannot read properties of null (reading 'style')"
+  const safeStyle = (id, prop, val) => { const el = $(id); if (el) el.style[prop] = val; };
+  const safeClass = (id, method, cls) => { const el = $(id); if (el) el.classList[method](cls); };
 
   // ── Boot ───────────────────────────────────────────────────
   (async () => {
@@ -189,18 +192,22 @@
     const atts = e.attachments || [];
     if (atts.length) {
       bodyHTML += `<div class="att-list">
-        <div class="att-list-title">📎 ${atts.length} attachment${atts.length>1?"s":""}</div>
-        ${atts.map(a => `
-          <div class="att-chip">
-            <span class="att-icon">${attIcon(a.content_type)}</span>
+        <div class="att-list-title">${atts.length} attachment${atts.length>1?"s":""}</div>
+        ${atts.map((a,i) => `
+          <div class="att-chip" data-att-idx="${i}" style="cursor:pointer;">
+            <span class="att-icon-svg">${attIconSvg(a.content_type)}</span>
             <span class="att-name">${esc(a.filename)}</span>
             <span class="att-size">${fmtSize(a.size)}</span>
-            ${a.download_url ? `<a class="att-dl" href="${esc(a.download_url)}" target="_blank" download="${esc(a.filename)}">⬇</a>` : ""}
+            ${a.download_url ? `<a class="att-dl" href="${esc(a.download_url)}" target="_blank" download="${esc(a.filename)}" onclick="event.stopPropagation()">Download</a>` : ""}
           </div>`).join("")}
       </div>`;
     }
     body.innerHTML = bodyHTML;
-
+    // Attach viewer click handlers after innerHTML is set
+    body.querySelectorAll(".att-chip[data-att-idx]").forEach(chip => {
+      chip.addEventListener("click", () => openAttViewer(atts[parseInt(chip.dataset.attIdx)]));
+    });
+    return; // skip the duplicate body.innerHTML below
     $("noMailSelected").style.display  = "none";
     $("mailReadContent").style.display = "flex";
     $("rdBack").style.display          = window.innerWidth < 900 ? "flex" : "none";
@@ -213,14 +220,16 @@
       null, "\n\n--- Forwarded ---\nFrom: "+(e.from_addr||"")+"\n\n"+(e.body_text||stripHtml(e.body_html||"")));
     $("rdStar").onclick    = () => toggleStar(id);
     $("rdDelete").onclick  = () => triggerDelete(id);
-    $("rdCancelSchedule").style.display = e.status === "scheduled" ? "flex" : "none";
-    $("rdCancelSchedule").onclick = () => cancelScheduled(id);
+    safeStyle("rdCancelSchedule", "display", e.status === "scheduled" ? "flex" : "none");
+    const _rcs = $("rdCancelSchedule"); if (_rcs) _rcs.onclick = () => cancelScheduled(id);
 
     if (willBurn) await burnEmail(id);
   }
 
   // ── Self-destruct ─────────────────────────────────────────
   async function burnEmail(id) {
+    const email = allEmails.find(e => e.id === id);
+    await deleteAttachments(email);
     await sb.from("inbox").delete().eq("id", id);
     allEmails = allEmails.filter(e => e.id !== id);
     updateBadge(); applyFilter();
@@ -235,8 +244,8 @@
   }
 
   function hideReadPane() {
-    $("noMailSelected").style.display  = "flex";
-    $("mailReadContent").style.display = "none";
+    safeStyle("noMailSelected",  "display", "flex");
+    safeStyle("mailReadContent", "display", "none");
   }
 
   $("rdBack").addEventListener("click", () => {
@@ -259,6 +268,8 @@
   $("confirmCancel").addEventListener("click", () => { $("confirmOverlay").classList.remove("open"); deleteTarget = null; });
   $("confirmDelete").addEventListener("click", async () => {
     if (!deleteTarget) return;
+    const _delEmail = allEmails.find(e => e.id === deleteTarget);
+    await deleteAttachments(_delEmail);
     await sb.from("inbox").delete().eq("id", deleteTarget);
     allEmails = allEmails.filter(e => e.id !== deleteTarget);
     if (selectedId === deleteTarget) { selectedId = null; hideReadPane(); }
@@ -321,6 +332,24 @@
     setupRichEditor();
     setupAttachmentPicker();
     setupMailOptions();
+    setupSelfDestructWatcher();
+  }
+
+  function setupSelfDestructWatcher() {
+    const toInput   = $("cTo");
+    const sdRow     = $("cSelfDestructRow");
+    const sdToggle  = $("cSelfDestructToggle");
+    const sdLock    = $("cSelfDestructLock");
+    if (!toInput || !sdRow) return;
+    function update() {
+      const is360 = toInput.value.trim().toLowerCase().endsWith("@360-search.com");
+      sdRow.classList.toggle("sd-locked", !is360);
+      if (!is360) sdToggle.checked = false;
+      sdToggle.disabled = !is360;
+      if (sdLock) sdLock.style.display = is360 ? "none" : "flex";
+    }
+    toInput.addEventListener("input", update);
+    update();
   }
 
   // ── Custom date/time picker helpers ───────────────────────
@@ -408,13 +437,13 @@
         $("cScheduleRow").style.display = "none";
         setDtValue("cScheduleDate","cScheduleTime",null);
         $("cScheduleBtn").classList.remove("active");
-        $("cScheduleBtn").innerHTML = "<span>⏰</span> Schedule";
+        $("cScheduleBtn").innerHTML = "<span class=\"sched-icon\"></span> Schedule";
       } else {
         $("cScheduleRow").style.display = "flex";
         if (!getDtValue("cScheduleDate","cScheduleTime"))
           setDtValue("cScheduleDate","cScheduleTime", new Date(Date.now()+3600*1000).toISOString());
         $("cScheduleBtn").classList.add("active");
-        $("cScheduleBtn").innerHTML = "<span>✕</span> Cancel schedule";
+        $("cScheduleBtn").innerHTML = "<span class=\"cancel-icon\"></span> Cancel schedule";
       }
     });
   }
@@ -514,7 +543,7 @@
     $("cStatus").textContent = "";
     $("cStatus").className   = "compose-status";
     $("cSendBtn").disabled   = false;
-    $("cSendBtn").innerHTML  = "<span>✈</span> Send";
+    $("cSendBtn").innerHTML  = "<span class=\"send-icon\"></span> Send";
     pendingAttachments = [];
     renderPendingAttachments();
     $("cExpireToggle").checked = false;
@@ -524,7 +553,7 @@
     $("cScheduleRow").style.display = "none";
     setDtValue("cScheduleDate","cScheduleTime",null);
     $("cScheduleBtn").classList.remove("active");
-    $("cScheduleBtn").innerHTML = "<span>⏰</span> Schedule";
+    $("cScheduleBtn").innerHTML = "<span class=\"sched-icon\"></span> Schedule";
     $("composeModal").classList.add("open");
     setTimeout(() => $("cTo").focus(), 80);
   }
@@ -565,7 +594,7 @@
     }
 
     btn.disabled  = true;
-    btn.innerHTML = "<span>⏳</span> Sending…";
+    btn.innerHTML = "<span class=\"send-icon spin\"></span> Sending…";
     status.textContent = "";
 
     try {
@@ -581,16 +610,113 @@
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || json.error || "Send failed");
-      status.textContent = json.delivery === "scheduled" ? "Scheduled ✓" : "Sent ✓";
+      status.textContent = json.delivery === "scheduled" ? "Scheduled" : "Sent";
       status.className = "compose-status ok";
-      btn.innerHTML = "<span>✈</span> Send"; btn.disabled = false;
+      btn.innerHTML = "<span class=\"send-icon\"></span> Send"; btn.disabled = false;
       setTimeout(closeCompose, 1200);
       await loadMail();
     } catch (err) {
       status.textContent = err.message; status.className = "compose-status err";
-      btn.innerHTML = "<span>✈</span> Send"; btn.disabled = false;
+      btn.innerHTML = "<span class=\"send-icon\"></span> Send"; btn.disabled = false;
     }
   }
+
+
+  // ══════════════════════════════════════════════════════════
+  // ATTACHMENT VIEWER
+  // ══════════════════════════════════════════════════════════
+  function openAttViewer(att) {
+    if (!att) return;
+    const overlay = $("attViewerOverlay");
+    const body    = $("attViewerBody");
+    const name    = $("attViewerName");
+    const dlBtn   = $("attViewerDl");
+    const runWrap = $("attRunWrap");
+    const runTog  = $("attRunToggle");
+    if (!overlay || !body) return;
+
+    name.textContent = att.filename || "Attachment";
+    dlBtn.href       = att.download_url || "#";
+    dlBtn.download   = att.filename || "attachment";
+    dlBtn.style.display = att.download_url ? "inline-flex" : "none";
+
+    const ct  = (att.content_type || "").toLowerCase();
+    const ext = (att.filename || "").split(".").pop().toLowerCase();
+
+    // Determine type
+    const isImage = ct.startsWith("image/") || ["png","jpg","jpeg","gif","webp","svg","bmp"].includes(ext);
+    const isAudio = ct.startsWith("audio/") || ["mp3","wav","ogg","flac","aac","m4a"].includes(ext);
+    const isVideo = ct.startsWith("video/") || ["mp4","webm","mov","avi","mkv"].includes(ext);
+    const isPdf   = ct.includes("pdf") || ext === "pdf";
+    const isText  = ct.startsWith("text/") || ["txt","md","csv","log","ini","conf","yaml","yml","toml","xml","json"].includes(ext);
+    const isCode  = ["js","ts","jsx","tsx","html","css","py","java","c","cpp","cs","php","rb","go","rs","sh","bash","sql"].includes(ext);
+    const isRunnable = ["html","js"].includes(ext); // only safe-ish to run
+
+    runTog.checked = false;
+    runWrap.style.display = isRunnable ? "flex" : "none";
+
+    function renderContent(run) {
+      if (isImage && att.download_url) {
+        body.innerHTML = `<div class="av-img-wrap"><img src="${esc(att.download_url)}" alt="${esc(att.filename)}" class="av-img"/></div>`;
+      } else if (isAudio && att.download_url) {
+        body.innerHTML = `<div class="av-audio-wrap"><audio controls src="${esc(att.download_url)}" class="av-audio"></audio><div class="av-audio-label">${esc(att.filename)}</div></div>`;
+      } else if (isVideo && att.download_url) {
+        body.innerHTML = `<video controls src="${esc(att.download_url)}" class="av-video"></video>`;
+      } else if (isPdf && att.download_url) {
+        body.innerHTML = `<iframe src="${esc(att.download_url)}" class="av-pdf" title="${esc(att.filename)}"></iframe>`;
+      } else if ((isText || isCode) && att.download_url) {
+        if (isRunnable && run) {
+          if (ext === "html") {
+            body.innerHTML = `<iframe src="${esc(att.download_url)}" class="av-run-frame" sandbox="allow-scripts allow-same-origin" title="Preview"></iframe>`;
+          } else {
+            body.innerHTML = `<div class="av-placeholder">JS execution requires the file to be embedded in a page.<br>Download to run locally.</div>`;
+          }
+        } else {
+          body.innerHTML = `<div class="av-loading">Loading…</div>`;
+          fetch(att.download_url)
+            .then(r => r.text())
+            .then(text => {
+              body.innerHTML = `<pre class="av-code ${isCode ? "av-code-hl" : ""}">${esc(text)}</pre>`;
+            })
+            .catch(() => { body.innerHTML = `<div class="av-placeholder">Could not load file content.</div>`; });
+        }
+      } else {
+        body.innerHTML = `<div class="av-placeholder">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:.35;margin-bottom:12px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8L14 2Z" stroke="currentColor" stroke-width="1.6"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <div>No preview available</div>
+          ${att.download_url ? `<a href="${esc(att.download_url)}" download="${esc(att.filename)}" class="att-dl-btn" style="margin-top:12px;">Download to view</a>` : ""}
+        </div>`;
+      }
+    }
+
+    runTog.onchange = () => renderContent(runTog.checked);
+    renderContent(false);
+    overlay.classList.add("open");
+  }
+
+  $("attViewerClose") && $("attViewerClose").addEventListener("click", () => {
+    $("attViewerOverlay").classList.remove("open");
+    // Stop any media playing
+    $("attViewerBody").querySelectorAll("audio,video").forEach(m => m.pause());
+    $("attViewerBody").innerHTML = "";
+  });
+  $("attViewerOverlay") && $("attViewerOverlay").addEventListener("click", ev => {
+    if (ev.target === $("attViewerOverlay")) {
+      $("attViewerOverlay").classList.remove("open");
+      $("attViewerBody").querySelectorAll("audio,video").forEach(m => m.pause());
+      $("attViewerBody").innerHTML = "";
+    }
+  });
+
+  // Delete attachments from Resend when email is burned/deleted
+  async function deleteAttachments(email) {
+    const atts = email?.attachments || [];
+    if (!atts.length || !email?.resend_id) return;
+    // Resend stores inbound attachments; we can only inform — no public delete API yet.
+    // Just clear from our DB record.
+    await sb.from("inbox").update({ attachments: [] }).eq("id", email.id).catch(() => {});
+  }
+
 
   // ── Categories ─────────────────────────────────────────────
   async function loadCategories() {
@@ -719,14 +845,16 @@
   }
   function fmtDate(ts){ return new Date(ts).toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}); }
   function fmtSize(b){ if(!b)return ""; if(b<1024)return b+"B"; if(b<1048576)return (b/1024).toFixed(1)+"KB"; return (b/1048576).toFixed(1)+"MB"; }
-  function attIcon(ct){
-    if(!ct)return "📎";
-    if(ct.startsWith("image/"))  return "🖼";
-    if(ct.includes("pdf"))       return "📄";
-    if(ct.includes("word")||ct.includes("document")) return "📝";
-    if(ct.includes("sheet")||ct.includes("excel"))   return "📊";
-    if(ct.includes("zip")||ct.includes("compressed")) return "🗜";
-    return "📎";
+  function attIcon(ct){ return ""; }
+  function attIconSvg(ct) {
+    const t = (ct||"").toLowerCase();
+    if (t.startsWith("image/"))  return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="8.5" r="1.5" fill="currentColor"/><path d="m2 14 4-4 3 3 3-2 5 4" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+    if (t.includes("pdf"))       return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M12 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7l-4-5Z" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    if (t.startsWith("audio/"))  return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 13V8l8-5v10" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="4" cy="13" r="2" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="13" r="2" stroke="currentColor" stroke-width="1.6"/></svg>';
+    if (t.startsWith("video/"))  return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="2" y="5" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="m13 8 5-3v10l-5-3V8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+    if (t.includes("zip"))       return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M12 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7l-4-5Z" stroke="currentColor" stroke-width="1.6"/><path d="M10 10v5M8 12h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+    if (t.includes("sheet"))     return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M2 7h16M7 7v11" stroke="currentColor" stroke-width="1.4"/></svg>';
+    return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M12 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7l-4-5Z" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   }
   function fileToBase64(file){
     return new Promise((res,rej)=>{
