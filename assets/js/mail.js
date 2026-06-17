@@ -323,27 +323,96 @@
     setupMailOptions();
   }
 
+  // ── Custom date/time picker helpers ───────────────────────
+  function getDtValue(dateId, timeId) {
+    const d = $(dateId).value.trim();
+    const t = $(timeId).value.trim() || "00:00";
+    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+    if (!/^\d{2}:\d{2}$/.test(t)) return null;
+    return `${d}T${t}`;
+  }
+  function setDtValue(dateId, timeId, isoStr) {
+    if (!isoStr) { $(dateId).value = ""; $(timeId).value = ""; return; }
+    const d = new Date(isoStr);
+    const pad = n => String(n).padStart(2,"0");
+    $(dateId).value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    $(timeId).value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function buildCalendar(calId, dateInputId, timeInputId) {
+    const cal = $(calId), dateInput = $(dateInputId), timeInput = $(timeInputId);
+    dateInput.addEventListener("click", ev => {
+      ev.stopPropagation();
+      cal.style.display = cal.style.display === "none" ? "block" : "none";
+      if (cal.style.display === "block") renderCal();
+    });
+    dateInput.addEventListener("input", () => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) renderCal();
+    });
+    document.addEventListener("click", ev => {
+      if (!cal.contains(ev.target) && ev.target !== dateInput) cal.style.display = "none";
+    });
+    timeInput.addEventListener("input", ev => {
+      let v = ev.target.value.replace(/[^\d]/g,"");
+      if (v.length > 2) v = v.slice(0,2) + ":" + v.slice(2,4);
+      ev.target.value = v;
+    });
+    function renderCal() {
+      let cur = new Date(dateInput.value || Date.now());
+      if (isNaN(cur)) cur = new Date();
+      const year = cur.getFullYear(), month = cur.getMonth();
+      const today = new Date(); today.setHours(0,0,0,0);
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month+1, 0).getDate();
+      const pad = n => String(n).padStart(2,"0");
+      const mNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      let html = `<div class="cdt-cal-head">
+        <button class="cdt-nav" data-m="-1">‹</button>
+        <span class="cdt-month-label">${mNames[month]} ${year}</span>
+        <button class="cdt-nav" data-m="1">›</button>
+      </div><div class="cdt-cal-grid">`;
+      ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="cdt-dow">${d}</div>`);
+      for (let i=0; i<firstDay; i++) html += `<div></div>`;
+      for (let d=1; d<=daysInMonth; d++) {
+        const dt = new Date(year, month, d);
+        const isPast = dt < today;
+        const isSel  = dateInput.value === `${year}-${pad(month+1)}-${pad(d)}`;
+        html += `<button class="cdt-day${isSel?" sel":""}${isPast?" past":""}" data-date="${year}-${pad(month+1)}-${pad(d)}" ${isPast?"disabled":""}>${d}</button>`;
+      }
+      html += `</div>`;
+      cal.innerHTML = html;
+      cal.querySelectorAll(".cdt-nav").forEach(btn => btn.addEventListener("click", ev => {
+        ev.stopPropagation();
+        const nc = new Date(year, month + parseInt(btn.dataset.m), 1);
+        dateInput.value = `${nc.getFullYear()}-${pad(nc.getMonth()+1)}-01`;
+        renderCal();
+      }));
+      cal.querySelectorAll(".cdt-day:not([disabled])").forEach(btn => btn.addEventListener("click", ev => {
+        ev.stopPropagation();
+        dateInput.value = btn.dataset.date;
+        cal.style.display = "none";
+      }));
+    }
+  }
+
   function setupMailOptions() {
+    buildCalendar("cExpireCal",   "cExpireDate",   "cExpireTime");
+    buildCalendar("cScheduleCal", "cScheduleDate", "cScheduleTime");
     $("cExpireToggle").addEventListener("change", ev => {
       $("cExpireInputWrap").classList.toggle("show", ev.target.checked);
-      if (ev.target.checked && !$("cExpireAt").value) {
-        const d = new Date(Date.now() + 24*3600*1000);
-        $("cExpireAt").value = d.toISOString().slice(0,16);
-      }
+      if (ev.target.checked && !getDtValue("cExpireDate","cExpireTime"))
+        setDtValue("cExpireDate","cExpireTime", new Date(Date.now()+24*3600*1000).toISOString());
     });
     $("cScheduleBtn").addEventListener("click", () => {
       const active = $("cScheduleRow").style.display !== "none";
       if (active) {
         $("cScheduleRow").style.display = "none";
-        $("cScheduleAt").value = "";
+        setDtValue("cScheduleDate","cScheduleTime",null);
         $("cScheduleBtn").classList.remove("active");
         $("cScheduleBtn").innerHTML = "<span>⏰</span> Schedule";
       } else {
         $("cScheduleRow").style.display = "flex";
-        if (!$("cScheduleAt").value) {
-          const d = new Date(Date.now() + 3600*1000);
-          $("cScheduleAt").value = d.toISOString().slice(0,16);
-        }
+        if (!getDtValue("cScheduleDate","cScheduleTime"))
+          setDtValue("cScheduleDate","cScheduleTime", new Date(Date.now()+3600*1000).toISOString());
         $("cScheduleBtn").classList.add("active");
         $("cScheduleBtn").innerHTML = "<span>✕</span> Cancel schedule";
       }
@@ -450,10 +519,10 @@
     renderPendingAttachments();
     $("cExpireToggle").checked = false;
     $("cExpireInputWrap").classList.remove("show");
-    $("cExpireAt").value = "";
+    setDtValue("cExpireDate","cExpireTime",null);
     $("cSelfDestructToggle").checked = false;
     $("cScheduleRow").style.display = "none";
-    $("cScheduleAt").value = "";
+    setDtValue("cScheduleDate","cScheduleTime",null);
     $("cScheduleBtn").classList.remove("active");
     $("cScheduleBtn").innerHTML = "<span>⏰</span> Schedule";
     $("composeModal").classList.add("open");
@@ -480,14 +549,16 @@
     }
 
     const expireOn    = $("cExpireToggle").checked;
-    const expiresAt   = expireOn && $("cExpireAt").value ? new Date($("cExpireAt").value).toISOString() : null;
+    const _expDt = getDtValue("cExpireDate","cExpireTime");
+    const expiresAt = expireOn && _expDt ? new Date(_expDt).toISOString() : null;
     if (expireOn && !expiresAt) {
       status.textContent = "Pick an expiration date, or turn the toggle off.";
       status.className   = "compose-status err"; return;
     }
     const selfDestruct = $("cSelfDestructToggle").checked;
     const scheduleOn   = $("cScheduleRow").style.display !== "none";
-    const scheduledAt  = scheduleOn && $("cScheduleAt").value ? new Date($("cScheduleAt").value).toISOString() : null;
+    const _schDt = getDtValue("cScheduleDate","cScheduleTime");
+    const scheduledAt = scheduleOn && _schDt ? new Date(_schDt).toISOString() : null;
     if (scheduleOn && !scheduledAt) {
       status.textContent = "Pick a send time, or click Schedule again to cancel.";
       status.className   = "compose-status err"; return;
