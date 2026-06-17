@@ -84,6 +84,9 @@
     const n = allEmails.filter(e => e.direction === "in" && !e.read).length;
     $("inboxBadge").textContent   = n > 99 ? "99+" : n;
     $("inboxBadge").style.display = n > 0 ? "flex" : "none";
+    const s = allEmails.filter(e => e.direction === "out" && e.status === "scheduled").length;
+    $("scheduledBadge").textContent   = s > 99 ? "99+" : s;
+    $("scheduledBadge").style.display = s > 0 ? "flex" : "none";
   }
 
   // ── Filter ─────────────────────────────────────────────────
@@ -91,8 +94,9 @@
     const q = $("mailSearch").value.trim().toLowerCase();
     let list = [...allEmails];
     if      (currentFolder === "inbox")    list = list.filter(e => e.direction === "in");
-    else if (currentFolder === "sent")     list = list.filter(e => e.direction === "out");
+    else if (currentFolder === "sent")     list = list.filter(e => e.direction === "out" && e.status !== "scheduled");
     else if (currentFolder === "starred")  list = list.filter(e => e.starred);
+    else if (currentFolder === "scheduled")list = list.filter(e => e.direction === "out" && e.status === "scheduled");
     else if (currentFolder === "category" && currentCatId) {
       const senders = (rules[currentCatId] || []).map(s => s.toLowerCase());
       list = list.filter(e => e.direction === "in" && senders.includes((e.from_addr||"").toLowerCase()));
@@ -111,8 +115,8 @@
   function renderList() {
     const scroll = $("mailListScroll");
     if (!filteredEmails.length) {
-      const icons = { inbox:"📭", sent:"📨", starred:"⭐", category:"📂" };
-      const msgs  = { inbox:"No messages yet", sent:"No sent messages", starred:"Nothing starred", category:"No messages from these senders" };
+      const icons = { inbox:"📭", sent:"📨", starred:"⭐", scheduled:"⏰", category:"📂" };
+      const msgs  = { inbox:"No messages yet", sent:"No sent messages", starred:"Nothing starred", scheduled:"Nothing scheduled", category:"No messages from these senders" };
       scroll.innerHTML = `<div class="mail-empty">
         <div class="mail-empty-icon">${icons[currentFolder]||"📭"}</div>
         <div class="mail-empty-text">${msgs[currentFolder]||"Empty"}</div>
@@ -125,12 +129,16 @@
       const display = e.direction === "out" ? (e.to_addr||"") : (e.from_addr||"");
       const preview = e.body_text || stripHtml(e.body_html||"") || "";
       const hasAtt  = e.attachments?.length > 0;
+      const flags   = (e.status==="scheduled" ? `<span class="mi-flag" title="Scheduled for ${esc(fmtDate(e.scheduled_at))}">⏰</span>` : "")
+                    + (e.expires_at ? `<span class="mi-flag" title="Expires ${esc(fmtDate(e.expires_at))}">⏳</span>` : "")
+                    + (e.self_destruct ? `<span class="mi-flag" title="Self-destructs after reading">🔥</span>` : "");
       return `<div class="mail-item${unread?" unread":""}${active?" active":""}" data-id="${e.id}">
         <button class="mi-star${e.starred?" starred":""}" data-id="${e.id}">★</button>
         <div class="mi-row1">
           <span class="mi-from">${esc(display)}</span>
           ${hasAtt ? '<span class="mi-att" title="Has attachments">📎</span>' : ''}
-          <span class="mi-time">${relTime(e.received_at)}</span>
+          ${flags}
+          <span class="mi-time">${e.status==="scheduled" ? relTime(e.scheduled_at) : relTime(e.received_at)}</span>
         </div>
         <div class="mi-subject">${esc(e.subject||"(no subject)")}</div>
         <div class="mi-preview">${esc(preview.slice(0,90))}</div>
@@ -149,6 +157,7 @@
     selectedId = id; renderList();
     const e = allEmails.find(x => x.id === id);
     if (!e) return;
+    const willBurn = !!e.self_destruct && e.direction === "in";
     if (!e.read && e.direction === "in") {
       e.read = true;
       await sb.from("inbox").update({ read: true }).eq("id", id);
@@ -158,13 +167,21 @@
     $("rdSubject").textContent = e.subject || "(no subject)";
     $("rdFrom").textContent    = isSent ? "To: "+(e.to_addr||"") : "From: "+(e.from_addr||"");
     $("rdAddr").textContent    = isSent ? "" : "→ "+(e.to_addr||"");
-    $("rdTime").textContent    = fmtDate(e.received_at);
+    $("rdTime").textContent    = e.status === "scheduled" ? "Scheduled for "+fmtDate(e.scheduled_at) : fmtDate(e.received_at);
     $("rdStar").textContent    = e.starred ? "★ Unstar" : "☆ Star";
 
-    // Body
+    // Badges
+    const badges = [];
+    if (e.status === "scheduled") badges.push(`<span class="mrh-badge scheduled">⏰ Scheduled — ${esc(fmtDate(e.scheduled_at))}</span>`);
+    if (e.expires_at)             badges.push(`<span class="mrh-badge">⏳ Expires ${esc(fmtDate(e.expires_at))}</span>`);
+    if (e.self_destruct)          badges.push(`<span class="mrh-badge burn">🔥 Self-destructs after reading</span>`);
+    $("rdBadges").innerHTML = badges.join("");
+
+    // Body — sanitized on render regardless of what's already in the DB
     const body = $("rdBody");
     let bodyHTML = "";
-    if (e.body_html)       bodyHTML += `<div class="mail-body-html">${e.body_html}</div>`;
+    if (willBurn) bodyHTML += `<div class="burn-banner">🔥 This message will self-destruct now that you've opened it.</div>`;
+    if (e.body_html)       bodyHTML += `<div class="mail-body-html">${purify(e.body_html)}</div>`;
     else if (e.body_text)  bodyHTML += `<pre class="mail-body-plain">${esc(e.body_text)}</pre>`;
     else                   bodyHTML += `<div class="mail-body-plain" style="opacity:.4">No message body.</div>`;
 
@@ -196,6 +213,25 @@
       null, "\n\n--- Forwarded ---\nFrom: "+(e.from_addr||"")+"\n\n"+(e.body_text||stripHtml(e.body_html||"")));
     $("rdStar").onclick    = () => toggleStar(id);
     $("rdDelete").onclick  = () => triggerDelete(id);
+    $("rdCancelSchedule").style.display = e.status === "scheduled" ? "flex" : "none";
+    $("rdCancelSchedule").onclick = () => cancelScheduled(id);
+
+    if (willBurn) await burnEmail(id);
+  }
+
+  // ── Self-destruct ─────────────────────────────────────────
+  async function burnEmail(id) {
+    await sb.from("inbox").delete().eq("id", id);
+    allEmails = allEmails.filter(e => e.id !== id);
+    updateBadge(); applyFilter();
+  }
+
+  // ── Cancel a scheduled send ─────────────────────────────────
+  async function cancelScheduled(id) {
+    await sb.from("inbox").delete().eq("id", id);
+    allEmails = allEmails.filter(e => e.id !== id);
+    if (selectedId === id) { selectedId = null; hideReadPane(); }
+    updateBadge(); applyFilter();
   }
 
   function hideReadPane() {
@@ -240,7 +276,7 @@
       el.addEventListener("click", ev => {
         if (ev.target.classList.contains("folder-reload-btn")) return;
         setFolder(el.dataset.folder, null,
-          { inbox:"Inbox", sent:"Sent", starred:"Starred" }[el.dataset.folder] || el.dataset.folder);
+          { inbox:"Inbox", sent:"Sent", starred:"Starred", scheduled:"Scheduled" }[el.dataset.folder] || el.dataset.folder);
       });
     });
   }
@@ -284,11 +320,39 @@
     $("cSendBtn").addEventListener("click", sendMail);
     setupRichEditor();
     setupAttachmentPicker();
+    setupMailOptions();
+  }
+
+  function setupMailOptions() {
+    $("cExpireToggle").addEventListener("change", ev => {
+      $("cExpireInputWrap").classList.toggle("show", ev.target.checked);
+      if (ev.target.checked && !$("cExpireAt").value) {
+        const d = new Date(Date.now() + 24*3600*1000);
+        $("cExpireAt").value = d.toISOString().slice(0,16);
+      }
+    });
+    $("cScheduleBtn").addEventListener("click", () => {
+      const active = $("cScheduleRow").style.display !== "none";
+      if (active) {
+        $("cScheduleRow").style.display = "none";
+        $("cScheduleAt").value = "";
+        $("cScheduleBtn").classList.remove("active");
+        $("cScheduleBtn").innerHTML = "<span>⏰</span> Schedule";
+      } else {
+        $("cScheduleRow").style.display = "flex";
+        if (!$("cScheduleAt").value) {
+          const d = new Date(Date.now() + 3600*1000);
+          $("cScheduleAt").value = d.toISOString().slice(0,16);
+        }
+        $("cScheduleBtn").classList.add("active");
+        $("cScheduleBtn").innerHTML = "<span>✕</span> Cancel schedule";
+      }
+    });
   }
 
   function setupRichEditor() {
     // Formatting toolbar buttons
-    document.querySelectorAll(".fmt-btn").forEach(btn => {
+    document.querySelectorAll(".fmt-btn[data-cmd]").forEach(btn => {
       btn.addEventListener("mousedown", ev => {
         ev.preventDefault(); // keep focus in editor
         const cmd = btn.dataset.cmd;
@@ -314,6 +378,20 @@
     editor.addEventListener("keyup",   updateToolbarState);
     editor.addEventListener("mouseup", updateToolbarState);
     editor.addEventListener("focus",   updateToolbarState);
+
+    // Raw HTML source toggle — write/paste actual HTML directly
+    $("cHtmlToggle").addEventListener("click", () => {
+      const src = $("cHtmlSource"), ed = $("cEditor");
+      const goingToHtml = !src.classList.contains("show");
+      if (goingToHtml) {
+        src.value = ed.innerHTML;
+        ed.classList.add("hide"); src.classList.add("show");
+      } else {
+        ed.innerHTML = purify(src.value);
+        ed.classList.remove("hide"); src.classList.remove("show");
+      }
+      $("cHtmlToggle").classList.toggle("active", goingToHtml);
+    });
   }
 
   function updateToolbarState() {
@@ -359,13 +437,25 @@
   function openCompose(to = "", subject = "", htmlBody = null, textBody = "") {
     $("cTo").value      = to;
     $("cSubject").value = subject;
+    $("cEditor").classList.remove("hide");
+    $("cHtmlSource").classList.remove("show");
+    $("cHtmlToggle").classList.remove("active");
     $("cEditor").innerHTML = htmlBody || (textBody ? `<p>${esc(textBody).replace(/\n/g,"<br>")}</p>` : "");
+    $("cHtmlSource").value = "";
     $("cStatus").textContent = "";
     $("cStatus").className   = "compose-status";
     $("cSendBtn").disabled   = false;
     $("cSendBtn").innerHTML  = "<span>✈</span> Send";
     pendingAttachments = [];
     renderPendingAttachments();
+    $("cExpireToggle").checked = false;
+    $("cExpireInputWrap").classList.remove("show");
+    $("cExpireAt").value = "";
+    $("cSelfDestructToggle").checked = false;
+    $("cScheduleRow").style.display = "none";
+    $("cScheduleAt").value = "";
+    $("cScheduleBtn").classList.remove("active");
+    $("cScheduleBtn").innerHTML = "<span>⏰</span> Schedule";
     $("composeModal").classList.add("open");
     setTimeout(() => $("cTo").focus(), 80);
   }
@@ -375,13 +465,31 @@
   async function sendMail() {
     const to      = $("cTo").value.trim();
     const subject = $("cSubject").value.trim();
-    const html    = $("cEditor").innerHTML.trim();
+    // If the raw-HTML view is open, fold its contents back into the editor first
+    if ($("cHtmlSource").classList.contains("show")) {
+      $("cEditor").innerHTML = purify($("cHtmlSource").value);
+    }
+    const html    = purify($("cEditor").innerHTML.trim());
     const text    = $("cEditor").innerText.trim();
     const btn     = $("cSendBtn");
     const status  = $("cStatus");
 
     if (!to || !subject || !text) {
       status.textContent = "To, subject, and message are required.";
+      status.className   = "compose-status err"; return;
+    }
+
+    const expireOn    = $("cExpireToggle").checked;
+    const expiresAt   = expireOn && $("cExpireAt").value ? new Date($("cExpireAt").value).toISOString() : null;
+    if (expireOn && !expiresAt) {
+      status.textContent = "Pick an expiration date, or turn the toggle off.";
+      status.className   = "compose-status err"; return;
+    }
+    const selfDestruct = $("cSelfDestructToggle").checked;
+    const scheduleOn   = $("cScheduleRow").style.display !== "none";
+    const scheduledAt  = scheduleOn && $("cScheduleAt").value ? new Date($("cScheduleAt").value).toISOString() : null;
+    if (scheduleOn && !scheduledAt) {
+      status.textContent = "Pick a send time, or click Schedule again to cancel.";
       status.className   = "compose-status err"; return;
     }
 
@@ -396,12 +504,14 @@
         headers: { "Content-Type":"application/json", "Authorization":`Bearer ${session.access_token}`, "apikey":SB_ANON },
         body: JSON.stringify({
           to, subject, html, text,
-          attachments: pendingAttachments.map(a => ({ filename: a.filename, content_type: a.content_type, content: a.content }))
+          attachments: pendingAttachments.map(a => ({ filename: a.filename, content_type: a.content_type, content: a.content })),
+          expiresAt, selfDestruct, scheduledAt,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || json.error || "Send failed");
-      status.textContent = "Sent ✓"; status.className = "compose-status ok";
+      status.textContent = json.delivery === "scheduled" ? "Scheduled ✓" : "Sent ✓";
+      status.className = "compose-status ok";
       btn.innerHTML = "<span>✈</span> Send"; btn.disabled = false;
       setTimeout(closeCompose, 1200);
       await loadMail();
@@ -516,6 +626,19 @@
 
   // ── Utilities ──────────────────────────────────────────────
   function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  // Sanitize on render, in addition to server-side sanitization — covers
+  // older rows written before sanitization existed and any future insert
+  // path that bypasses the edge functions.
+  function purify(html) {
+    if (window.DOMPurify) {
+      return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: ['p','br','b','strong','i','em','u','s','strike','span','div','a','img','ul','ol','li',
+          'blockquote','h1','h2','h3','h4','h5','h6','hr','table','thead','tbody','tr','td','th','code','pre','font','sub','sup'],
+        ALLOWED_ATTR: ['href','title','target','rel','src','alt','width','height','style','color','size','face','colspan','rowspan'],
+      });
+    }
+    return esc(html); // DOMPurify failed to load — fail safe to plain text
+  }
   function stripHtml(h){ const d=document.createElement("div");d.innerHTML=h;return d.textContent||d.innerText||""; }
   function relTime(ts){
     const d=Math.floor((Date.now()-new Date(ts).getTime())/1000);
