@@ -25,9 +25,6 @@
 
   // ── DOM helpers ────────────────────────────────────────────
   const $ = id => document.getElementById(id);
-  // Null-safe style setter — avoids "Cannot read properties of null (reading 'style')"
-  const safeStyle = (id, prop, val) => { const el = $(id); if (el) el.style[prop] = val; };
-  const safeClass = (id, method, cls) => { const el = $(id); if (el) el.classList[method](cls); };
 
   // ── Boot ───────────────────────────────────────────────────
   (async () => {
@@ -155,7 +152,56 @@
     );
   }
 
-  // ── Open email ─────────────────────────────────────────────
+  // Sanitizer used when RENDERING a received email inside the sandboxed
+  // iframe (see buildEmailSrcdoc). Much more permissive than purify() above
+  // since real-world email HTML relies on full documents, <style> blocks,
+  // table layout attributes, and classes — none of which is a script-execution
+  // risk once it's confined to a sandbox iframe with no allow-scripts.
+  function purifyEmailBody(html) {
+    if (!window.DOMPurify) return esc(html);
+    DOMPurify.addHook("afterSanitizeAttributes", node => {
+      if (node.tagName === "A") { node.setAttribute("target","_blank"); node.setAttribute("rel","noopener noreferrer"); }
+    });
+    const clean = DOMPurify.sanitize(html, {
+      WHOLE_DOCUMENT: true,
+      ALLOWED_TAGS: ['html','head','body','title','meta','style','center','p','br','b','strong','i','em','u','s',
+        'strike','span','div','a','img','ul','ol','li','blockquote','h1','h2','h3','h4','h5','h6','hr',
+        'table','thead','tbody','tfoot','tr','td','th','code','pre','font','sub','sup','small','big'],
+      ALLOWED_ATTR: ['href','title','target','rel','src','alt','width','height','style','color','size','face',
+        'colspan','rowspan','class','id','align','valign','bgcolor','border','cellpadding','cellspacing',
+        'charset','name','content','dir','lang'],
+      FORBID_TAGS: ['script','iframe','object','embed','form','input','button','base','link','noscript'],
+      FORBID_ATTR: ['onerror','onload','onclick','onmouseover','onfocus','onblur'],
+    });
+    DOMPurify.removeHook("afterSanitizeAttributes");
+    return clean;
+  }
+  function buildEmailSrcdoc(html) {
+    const clean = purifyEmailBody(html || "");
+    const dark  = document.body.classList.contains("dark");
+    const baseCss = `body{margin:0;padding:12px 2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;`
+      + `font-size:14px;line-height:1.7;color:${dark?'#e2e8f0':'#1e293b'};background:transparent;`
+      + `word-wrap:break-word;overflow-wrap:break-word;} img{max-width:100%;height:auto;} `
+      + `a{color:${dark?'#60a5fa':'#3b82f6'};} table{max-width:100%;}`;
+    if (/<html[\s>]/i.test(clean)) {
+      // Full document — respect its own styling, just inject our base as a fallback floor
+      return clean.replace(/<head[^>]*>/i, m => `${m}<style>${baseCss}</style>`);
+    }
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${baseCss}</style></head><body>${clean}</body></html>`;
+  }
+  function renderEmailIframe(html) {
+    const iframe = document.createElement("iframe");
+    iframe.className = "mail-body-iframe";
+    iframe.setAttribute("sandbox", "allow-same-origin allow-popups");
+    iframe.srcdoc = buildEmailSrcdoc(html);
+    iframe.addEventListener("load", () => {
+      try { iframe.style.height = iframe.contentWindow.document.documentElement.scrollHeight + "px"; }
+      catch { iframe.style.height = "320px"; }
+    });
+    return iframe;
+  }
+
+
   async function openEmail(id) {
     selectedId = id; renderList();
     const e = allEmails.find(x => x.id === id);
@@ -180,34 +226,37 @@
     if (e.self_destruct)          badges.push(`<span class="mrh-badge burn">🔥 Self-destructs after reading</span>`);
     $("rdBadges").innerHTML = badges.join("");
 
-    // Body — sanitized on render regardless of what's already in the DB
+    // Body — HTML renders inside a sandboxed iframe (real email HTML is
+    // often a full <html><head><body> document; injecting that into a
+    // page <div> via innerHTML is invalid nesting and breaks layout/styles).
     const body = $("rdBody");
-    let bodyHTML = "";
-    if (willBurn) bodyHTML += `<div class="burn-banner">🔥 This message will self-destruct now that you've opened it.</div>`;
-    if (e.body_html)       bodyHTML += `<div class="mail-body-html">${purify(e.body_html)}</div>`;
-    else if (e.body_text)  bodyHTML += `<pre class="mail-body-plain">${esc(e.body_text)}</pre>`;
-    else                   bodyHTML += `<div class="mail-body-plain" style="opacity:.4">No message body.</div>`;
+    body.innerHTML = "";
+    if (willBurn) {
+      const banner = document.createElement("div");
+      banner.className = "burn-banner";
+      banner.textContent = "🔥 This message will self-destruct now that you've opened it.";
+      body.appendChild(banner);
+    }
+    if (e.body_html)       body.appendChild(renderEmailIframe(e.body_html));
+    else if (e.body_text)  { const pre = document.createElement("pre"); pre.className = "mail-body-plain"; pre.textContent = e.body_text; body.appendChild(pre); }
+    else                   { const d = document.createElement("div"); d.className = "mail-body-plain"; d.style.opacity = ".4"; d.textContent = "No message body."; body.appendChild(d); }
 
     // Attachments display
     const atts = e.attachments || [];
     if (atts.length) {
-      bodyHTML += `<div class="att-list">
-        <div class="att-list-title">${atts.length} attachment${atts.length>1?"s":""}</div>
-        ${atts.map((a,i) => `
-          <div class="att-chip" data-att-idx="${i}" style="cursor:pointer;">
-            <span class="att-icon-svg">${attIconSvg(a.content_type)}</span>
+      const attWrap = document.createElement("div");
+      attWrap.className = "att-list";
+      attWrap.innerHTML = `<div class="att-list-title">📎 ${atts.length} attachment${atts.length>1?"s":""}</div>
+        ${atts.map(a => `
+          <div class="att-chip">
+            <span class="att-icon">${attIcon(a.content_type)}</span>
             <span class="att-name">${esc(a.filename)}</span>
             <span class="att-size">${fmtSize(a.size)}</span>
-            ${a.download_url ? `<a class="att-dl" href="${esc(a.download_url)}" target="_blank" download="${esc(a.filename)}" onclick="event.stopPropagation()">Download</a>` : ""}
-          </div>`).join("")}
-      </div>`;
+            ${a.download_url ? `<a class="att-dl" href="${esc(a.download_url)}" target="_blank" rel="noopener" download="${esc(a.filename)}">⬇</a>` : `<span class="att-dl" style="opacity:.4" title="Not available for download">⬇</span>`}
+          </div>`).join("")}`;
+      body.appendChild(attWrap);
     }
-    body.innerHTML = bodyHTML;
-    // Attach viewer click handlers after innerHTML is set
-    body.querySelectorAll(".att-chip[data-att-idx]").forEach(chip => {
-      chip.addEventListener("click", () => openAttViewer(atts[parseInt(chip.dataset.attIdx)]));
-    });
-    return; // skip the duplicate body.innerHTML below
+
     $("noMailSelected").style.display  = "none";
     $("mailReadContent").style.display = "flex";
     $("rdBack").style.display          = window.innerWidth < 900 ? "flex" : "none";
@@ -220,16 +269,14 @@
       null, "\n\n--- Forwarded ---\nFrom: "+(e.from_addr||"")+"\n\n"+(e.body_text||stripHtml(e.body_html||"")));
     $("rdStar").onclick    = () => toggleStar(id);
     $("rdDelete").onclick  = () => triggerDelete(id);
-    safeStyle("rdCancelSchedule", "display", e.status === "scheduled" ? "flex" : "none");
-    const _rcs = $("rdCancelSchedule"); if (_rcs) _rcs.onclick = () => cancelScheduled(id);
+    $("rdCancelSchedule").style.display = e.status === "scheduled" ? "flex" : "none";
+    $("rdCancelSchedule").onclick = () => cancelScheduled(id);
 
     if (willBurn) await burnEmail(id);
   }
 
   // ── Self-destruct ─────────────────────────────────────────
   async function burnEmail(id) {
-    const email = allEmails.find(e => e.id === id);
-    await deleteAttachments(email);
     await sb.from("inbox").delete().eq("id", id);
     allEmails = allEmails.filter(e => e.id !== id);
     updateBadge(); applyFilter();
@@ -244,8 +291,8 @@
   }
 
   function hideReadPane() {
-    safeStyle("noMailSelected",  "display", "flex");
-    safeStyle("mailReadContent", "display", "none");
+    $("noMailSelected").style.display  = "flex";
+    $("mailReadContent").style.display = "none";
   }
 
   $("rdBack").addEventListener("click", () => {
@@ -268,8 +315,6 @@
   $("confirmCancel").addEventListener("click", () => { $("confirmOverlay").classList.remove("open"); deleteTarget = null; });
   $("confirmDelete").addEventListener("click", async () => {
     if (!deleteTarget) return;
-    const _delEmail = allEmails.find(e => e.id === deleteTarget);
-    await deleteAttachments(_delEmail);
     await sb.from("inbox").delete().eq("id", deleteTarget);
     allEmails = allEmails.filter(e => e.id !== deleteTarget);
     if (selectedId === deleteTarget) { selectedId = null; hideReadPane(); }
@@ -318,7 +363,25 @@
     if (!mailAddress) return;
     sb.channel("inbox_rt")
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"inbox", filter:`owner_email=eq.${mailAddress}` },
-        payload => { allEmails.unshift(payload.new); updateBadge(); applyFilter(); })
+        payload => {
+          if (allEmails.some(e => e.id === payload.new.id)) return;
+          allEmails.unshift(payload.new);
+          updateBadge(); applyFilter();
+        })
+      .on("postgres_changes", { event:"UPDATE", schema:"public", table:"inbox", filter:`owner_email=eq.${mailAddress}` },
+        payload => {
+          const i = allEmails.findIndex(e => e.id === payload.new.id);
+          if (i === -1) return;
+          allEmails[i] = payload.new;
+          updateBadge(); applyFilter();
+          if (selectedId === payload.new.id) openEmail(payload.new.id);
+        })
+      .on("postgres_changes", { event:"DELETE", schema:"public", table:"inbox", filter:`owner_email=eq.${mailAddress}` },
+        payload => {
+          allEmails = allEmails.filter(e => e.id !== payload.old.id);
+          if (selectedId === payload.old.id) { selectedId = null; hideReadPane(); }
+          updateBadge(); applyFilter();
+        })
       .subscribe();
   }
 
@@ -332,118 +395,31 @@
     setupRichEditor();
     setupAttachmentPicker();
     setupMailOptions();
-    setupSelfDestructWatcher();
-  }
-
-  function setupSelfDestructWatcher() {
-    const toInput   = $("cTo");
-    const sdRow     = $("cSelfDestructRow");
-    const sdToggle  = $("cSelfDestructToggle");
-    const sdLock    = $("cSelfDestructLock");
-    if (!toInput || !sdRow) return;
-    function update() {
-      const is360 = toInput.value.trim().toLowerCase().endsWith("@360-search.com");
-      sdRow.classList.toggle("sd-locked", !is360);
-      if (!is360) sdToggle.checked = false;
-      sdToggle.disabled = !is360;
-      if (sdLock) sdLock.style.display = is360 ? "none" : "flex";
-    }
-    toInput.addEventListener("input", update);
-    update();
-  }
-
-  // ── Custom date/time picker helpers ───────────────────────
-  function getDtValue(dateId, timeId) {
-    const d = $(dateId).value.trim();
-    const t = $(timeId).value.trim() || "00:00";
-    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
-    if (!/^\d{2}:\d{2}$/.test(t)) return null;
-    return `${d}T${t}`;
-  }
-  function setDtValue(dateId, timeId, isoStr) {
-    if (!isoStr) { $(dateId).value = ""; $(timeId).value = ""; return; }
-    const d = new Date(isoStr);
-    const pad = n => String(n).padStart(2,"0");
-    $(dateId).value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-    $(timeId).value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-  function buildCalendar(calId, dateInputId, timeInputId) {
-    const cal = $(calId), dateInput = $(dateInputId), timeInput = $(timeInputId);
-    dateInput.addEventListener("click", ev => {
-      ev.stopPropagation();
-      cal.style.display = cal.style.display === "none" ? "block" : "none";
-      if (cal.style.display === "block") renderCal();
-    });
-    dateInput.addEventListener("input", () => {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) renderCal();
-    });
-    document.addEventListener("click", ev => {
-      if (!cal.contains(ev.target) && ev.target !== dateInput) cal.style.display = "none";
-    });
-    timeInput.addEventListener("input", ev => {
-      let v = ev.target.value.replace(/[^\d]/g,"");
-      if (v.length > 2) v = v.slice(0,2) + ":" + v.slice(2,4);
-      ev.target.value = v;
-    });
-    function renderCal() {
-      let cur = new Date(dateInput.value || Date.now());
-      if (isNaN(cur)) cur = new Date();
-      const year = cur.getFullYear(), month = cur.getMonth();
-      const today = new Date(); today.setHours(0,0,0,0);
-      const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month+1, 0).getDate();
-      const pad = n => String(n).padStart(2,"0");
-      const mNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-      let html = `<div class="cdt-cal-head">
-        <button class="cdt-nav" data-m="-1">‹</button>
-        <span class="cdt-month-label">${mNames[month]} ${year}</span>
-        <button class="cdt-nav" data-m="1">›</button>
-      </div><div class="cdt-cal-grid">`;
-      ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="cdt-dow">${d}</div>`);
-      for (let i=0; i<firstDay; i++) html += `<div></div>`;
-      for (let d=1; d<=daysInMonth; d++) {
-        const dt = new Date(year, month, d);
-        const isPast = dt < today;
-        const isSel  = dateInput.value === `${year}-${pad(month+1)}-${pad(d)}`;
-        html += `<button class="cdt-day${isSel?" sel":""}${isPast?" past":""}" data-date="${year}-${pad(month+1)}-${pad(d)}" ${isPast?"disabled":""}>${d}</button>`;
-      }
-      html += `</div>`;
-      cal.innerHTML = html;
-      cal.querySelectorAll(".cdt-nav").forEach(btn => btn.addEventListener("click", ev => {
-        ev.stopPropagation();
-        const nc = new Date(year, month + parseInt(btn.dataset.m), 1);
-        dateInput.value = `${nc.getFullYear()}-${pad(nc.getMonth()+1)}-01`;
-        renderCal();
-      }));
-      cal.querySelectorAll(".cdt-day:not([disabled])").forEach(btn => btn.addEventListener("click", ev => {
-        ev.stopPropagation();
-        dateInput.value = btn.dataset.date;
-        cal.style.display = "none";
-      }));
-    }
   }
 
   function setupMailOptions() {
-    buildCalendar("cExpireCal",   "cExpireDate",   "cExpireTime");
-    buildCalendar("cScheduleCal", "cScheduleDate", "cScheduleTime");
     $("cExpireToggle").addEventListener("change", ev => {
       $("cExpireInputWrap").classList.toggle("show", ev.target.checked);
-      if (ev.target.checked && !getDtValue("cExpireDate","cExpireTime"))
-        setDtValue("cExpireDate","cExpireTime", new Date(Date.now()+24*3600*1000).toISOString());
+      if (ev.target.checked && !$("cExpireAt").value) {
+        const d = new Date(Date.now() + 24*3600*1000);
+        $("cExpireAt").value = d.toISOString().slice(0,16);
+      }
     });
     $("cScheduleBtn").addEventListener("click", () => {
       const active = $("cScheduleRow").style.display !== "none";
       if (active) {
         $("cScheduleRow").style.display = "none";
-        setDtValue("cScheduleDate","cScheduleTime",null);
+        $("cScheduleAt").value = "";
         $("cScheduleBtn").classList.remove("active");
-        $("cScheduleBtn").innerHTML = "<span class=\"sched-icon\"></span> Schedule";
+        $("cScheduleBtn").innerHTML = "<span>⏰</span> Schedule";
       } else {
         $("cScheduleRow").style.display = "flex";
-        if (!getDtValue("cScheduleDate","cScheduleTime"))
-          setDtValue("cScheduleDate","cScheduleTime", new Date(Date.now()+3600*1000).toISOString());
+        if (!$("cScheduleAt").value) {
+          const d = new Date(Date.now() + 3600*1000);
+          $("cScheduleAt").value = d.toISOString().slice(0,16);
+        }
         $("cScheduleBtn").classList.add("active");
-        $("cScheduleBtn").innerHTML = "<span class=\"cancel-icon\"></span> Cancel schedule";
+        $("cScheduleBtn").innerHTML = "<span>✕</span> Cancel schedule";
       }
     });
   }
@@ -543,17 +519,17 @@
     $("cStatus").textContent = "";
     $("cStatus").className   = "compose-status";
     $("cSendBtn").disabled   = false;
-    $("cSendBtn").innerHTML  = "<span class=\"send-icon\"></span> Send";
+    $("cSendBtn").innerHTML  = "<span>✈</span> Send";
     pendingAttachments = [];
     renderPendingAttachments();
     $("cExpireToggle").checked = false;
     $("cExpireInputWrap").classList.remove("show");
-    setDtValue("cExpireDate","cExpireTime",null);
+    $("cExpireAt").value = "";
     $("cSelfDestructToggle").checked = false;
     $("cScheduleRow").style.display = "none";
-    setDtValue("cScheduleDate","cScheduleTime",null);
+    $("cScheduleAt").value = "";
     $("cScheduleBtn").classList.remove("active");
-    $("cScheduleBtn").innerHTML = "<span class=\"sched-icon\"></span> Schedule";
+    $("cScheduleBtn").innerHTML = "<span>⏰</span> Schedule";
     $("composeModal").classList.add("open");
     setTimeout(() => $("cTo").focus(), 80);
   }
@@ -578,23 +554,21 @@
     }
 
     const expireOn    = $("cExpireToggle").checked;
-    const _expDt = getDtValue("cExpireDate","cExpireTime");
-    const expiresAt = expireOn && _expDt ? new Date(_expDt).toISOString() : null;
+    const expiresAt   = expireOn && $("cExpireAt").value ? new Date($("cExpireAt").value).toISOString() : null;
     if (expireOn && !expiresAt) {
       status.textContent = "Pick an expiration date, or turn the toggle off.";
       status.className   = "compose-status err"; return;
     }
     const selfDestruct = $("cSelfDestructToggle").checked;
     const scheduleOn   = $("cScheduleRow").style.display !== "none";
-    const _schDt = getDtValue("cScheduleDate","cScheduleTime");
-    const scheduledAt = scheduleOn && _schDt ? new Date(_schDt).toISOString() : null;
+    const scheduledAt  = scheduleOn && $("cScheduleAt").value ? new Date($("cScheduleAt").value).toISOString() : null;
     if (scheduleOn && !scheduledAt) {
       status.textContent = "Pick a send time, or click Schedule again to cancel.";
       status.className   = "compose-status err"; return;
     }
 
     btn.disabled  = true;
-    btn.innerHTML = "<span class=\"send-icon spin\"></span> Sending…";
+    btn.innerHTML = "<span>⏳</span> Sending…";
     status.textContent = "";
 
     try {
@@ -610,113 +584,16 @@
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || json.error || "Send failed");
-      status.textContent = json.delivery === "scheduled" ? "Scheduled" : "Sent";
+      status.textContent = json.delivery === "scheduled" ? "Scheduled ✓" : "Sent ✓";
       status.className = "compose-status ok";
-      btn.innerHTML = "<span class=\"send-icon\"></span> Send"; btn.disabled = false;
+      btn.innerHTML = "<span>✈</span> Send"; btn.disabled = false;
       setTimeout(closeCompose, 1200);
       await loadMail();
     } catch (err) {
       status.textContent = err.message; status.className = "compose-status err";
-      btn.innerHTML = "<span class=\"send-icon\"></span> Send"; btn.disabled = false;
+      btn.innerHTML = "<span>✈</span> Send"; btn.disabled = false;
     }
   }
-
-
-  // ══════════════════════════════════════════════════════════
-  // ATTACHMENT VIEWER
-  // ══════════════════════════════════════════════════════════
-  function openAttViewer(att) {
-    if (!att) return;
-    const overlay = $("attViewerOverlay");
-    const body    = $("attViewerBody");
-    const name    = $("attViewerName");
-    const dlBtn   = $("attViewerDl");
-    const runWrap = $("attRunWrap");
-    const runTog  = $("attRunToggle");
-    if (!overlay || !body) return;
-
-    name.textContent = att.filename || "Attachment";
-    dlBtn.href       = att.download_url || "#";
-    dlBtn.download   = att.filename || "attachment";
-    dlBtn.style.display = att.download_url ? "inline-flex" : "none";
-
-    const ct  = (att.content_type || "").toLowerCase();
-    const ext = (att.filename || "").split(".").pop().toLowerCase();
-
-    // Determine type
-    const isImage = ct.startsWith("image/") || ["png","jpg","jpeg","gif","webp","svg","bmp"].includes(ext);
-    const isAudio = ct.startsWith("audio/") || ["mp3","wav","ogg","flac","aac","m4a"].includes(ext);
-    const isVideo = ct.startsWith("video/") || ["mp4","webm","mov","avi","mkv"].includes(ext);
-    const isPdf   = ct.includes("pdf") || ext === "pdf";
-    const isText  = ct.startsWith("text/") || ["txt","md","csv","log","ini","conf","yaml","yml","toml","xml","json"].includes(ext);
-    const isCode  = ["js","ts","jsx","tsx","html","css","py","java","c","cpp","cs","php","rb","go","rs","sh","bash","sql"].includes(ext);
-    const isRunnable = ["html","js"].includes(ext); // only safe-ish to run
-
-    runTog.checked = false;
-    runWrap.style.display = isRunnable ? "flex" : "none";
-
-    function renderContent(run) {
-      if (isImage && att.download_url) {
-        body.innerHTML = `<div class="av-img-wrap"><img src="${esc(att.download_url)}" alt="${esc(att.filename)}" class="av-img"/></div>`;
-      } else if (isAudio && att.download_url) {
-        body.innerHTML = `<div class="av-audio-wrap"><audio controls src="${esc(att.download_url)}" class="av-audio"></audio><div class="av-audio-label">${esc(att.filename)}</div></div>`;
-      } else if (isVideo && att.download_url) {
-        body.innerHTML = `<video controls src="${esc(att.download_url)}" class="av-video"></video>`;
-      } else if (isPdf && att.download_url) {
-        body.innerHTML = `<iframe src="${esc(att.download_url)}" class="av-pdf" title="${esc(att.filename)}"></iframe>`;
-      } else if ((isText || isCode) && att.download_url) {
-        if (isRunnable && run) {
-          if (ext === "html") {
-            body.innerHTML = `<iframe src="${esc(att.download_url)}" class="av-run-frame" sandbox="allow-scripts allow-same-origin" title="Preview"></iframe>`;
-          } else {
-            body.innerHTML = `<div class="av-placeholder">JS execution requires the file to be embedded in a page.<br>Download to run locally.</div>`;
-          }
-        } else {
-          body.innerHTML = `<div class="av-loading">Loading…</div>`;
-          fetch(att.download_url)
-            .then(r => r.text())
-            .then(text => {
-              body.innerHTML = `<pre class="av-code ${isCode ? "av-code-hl" : ""}">${esc(text)}</pre>`;
-            })
-            .catch(() => { body.innerHTML = `<div class="av-placeholder">Could not load file content.</div>`; });
-        }
-      } else {
-        body.innerHTML = `<div class="av-placeholder">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:.35;margin-bottom:12px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8L14 2Z" stroke="currentColor" stroke-width="1.6"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-          <div>No preview available</div>
-          ${att.download_url ? `<a href="${esc(att.download_url)}" download="${esc(att.filename)}" class="att-dl-btn" style="margin-top:12px;">Download to view</a>` : ""}
-        </div>`;
-      }
-    }
-
-    runTog.onchange = () => renderContent(runTog.checked);
-    renderContent(false);
-    overlay.classList.add("open");
-  }
-
-  $("attViewerClose") && $("attViewerClose").addEventListener("click", () => {
-    $("attViewerOverlay").classList.remove("open");
-    // Stop any media playing
-    $("attViewerBody").querySelectorAll("audio,video").forEach(m => m.pause());
-    $("attViewerBody").innerHTML = "";
-  });
-  $("attViewerOverlay") && $("attViewerOverlay").addEventListener("click", ev => {
-    if (ev.target === $("attViewerOverlay")) {
-      $("attViewerOverlay").classList.remove("open");
-      $("attViewerBody").querySelectorAll("audio,video").forEach(m => m.pause());
-      $("attViewerBody").innerHTML = "";
-    }
-  });
-
-  // Delete attachments from Resend when email is burned/deleted
-  async function deleteAttachments(email) {
-    const atts = email?.attachments || [];
-    if (!atts.length || !email?.resend_id) return;
-    // Resend stores inbound attachments; we can only inform — no public delete API yet.
-    // Just clear from our DB record.
-    await sb.from("inbox").update({ attachments: [] }).eq("id", email.id).catch(() => {});
-  }
-
 
   // ── Categories ─────────────────────────────────────────────
   async function loadCategories() {
@@ -845,16 +722,14 @@
   }
   function fmtDate(ts){ return new Date(ts).toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}); }
   function fmtSize(b){ if(!b)return ""; if(b<1024)return b+"B"; if(b<1048576)return (b/1024).toFixed(1)+"KB"; return (b/1048576).toFixed(1)+"MB"; }
-  function attIcon(ct){ return ""; }
-  function attIconSvg(ct) {
-    const t = (ct||"").toLowerCase();
-    if (t.startsWith("image/"))  return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="8.5" r="1.5" fill="currentColor"/><path d="m2 14 4-4 3 3 3-2 5 4" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
-    if (t.includes("pdf"))       return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M12 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7l-4-5Z" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-    if (t.startsWith("audio/"))  return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 13V8l8-5v10" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="4" cy="13" r="2" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="13" r="2" stroke="currentColor" stroke-width="1.6"/></svg>';
-    if (t.startsWith("video/"))  return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="2" y="5" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="m13 8 5-3v10l-5-3V8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
-    if (t.includes("zip"))       return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M12 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7l-4-5Z" stroke="currentColor" stroke-width="1.6"/><path d="M10 10v5M8 12h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
-    if (t.includes("sheet"))     return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M2 7h16M7 7v11" stroke="currentColor" stroke-width="1.4"/></svg>';
-    return '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M12 2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7l-4-5Z" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  function attIcon(ct){
+    if(!ct)return "📎";
+    if(ct.startsWith("image/"))  return "🖼";
+    if(ct.includes("pdf"))       return "📄";
+    if(ct.includes("word")||ct.includes("document")) return "📝";
+    if(ct.includes("sheet")||ct.includes("excel"))   return "📊";
+    if(ct.includes("zip")||ct.includes("compressed")) return "🗜";
+    return "📎";
   }
   function fileToBase64(file){
     return new Promise((res,rej)=>{
