@@ -123,24 +123,24 @@
 
     <!-- Left sidebar -->
     <div class="mail-left" id="mailLeft">
-      <button class="mail-compose-btn" id="composeBtn"><span>Compose</span></button>
+      <button class="mail-compose-btn" id="composeBtn"><span>✏</span><span>Compose</span></button>
 
       <div class="folder-label">Mailbox</div>
       <div class="folder-item active" data-folder="inbox" data-builtin="1">
-        <span class="fi-svg"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Z" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h4l1.5 2h3L13 9h4" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="fi-name">Inbox</span>
+        <span class="fi-icon">📩</span><span class="fi-name">Inbox</span>
         <button class="folder-reload-btn" title="Reload">↻</button>
         <span class="folder-badge" id="inboxBadge" style="display:none;"></span>
       </div>
       <div class="folder-item" data-folder="sent" data-builtin="1">
-        <span class="fi-svg"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="m3 10 14-7-7 14V10H3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="fi-name">Sent</span>
+        <span class="fi-icon">📨</span><span class="fi-name">Sent</span>
         <button class="folder-reload-btn" title="Reload">↻</button>
       </div>
       <div class="folder-item" data-folder="starred" data-builtin="1">
-        <span class="fi-svg"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 2l2.4 5 5.6.8-4 4 .9 5.6L10 15l-4.9 2.4.9-5.6-4-4 5.6-.8L10 2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="fi-name">Starred</span>
+        <span class="fi-icon">⭐</span><span class="fi-name">Starred</span>
         <button class="folder-reload-btn" title="Reload">↻</button>
       </div>
       <div class="folder-item" data-folder="scheduled" data-builtin="1">
-        <span class="fi-svg"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.6"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="fi-name">Scheduled</span>
+        <span class="fi-icon">⏰</span><span class="fi-name">Scheduled</span>
         <button class="folder-reload-btn" title="Reload">↻</button>
         <span class="folder-badge" id="scheduledBadge" style="display:none;"></span>
       </div>
@@ -201,12 +201,12 @@
           <div class="mrh-badges" id="rdBadges"></div>
         </div>
         <div class="mail-read-actions">
-          <button class="mra-btn" id="rdReply">Reply</button>
-          <button class="mra-btn" id="rdForward">Forward</button>
-          <button class="mra-btn" id="rdStar">Star</button>
-          <button class="mra-btn danger" id="rdCancelSchedule" style="display:none;">Cancel send</button>
-          <button class="mra-btn danger" id="rdDelete">Delete</button>
-          <button class="mra-btn" id="rdBack" style="display:none;">Back</button>
+          <button class="mra-btn" id="rdReply">↩ Reply</button>
+          <button class="mra-btn" id="rdForward">→ Forward</button>
+          <button class="mra-btn" id="rdStar">☆ Star</button>
+          <button class="mra-btn danger" id="rdCancelSchedule" style="display:none;">⏹ Cancel send</button>
+          <button class="mra-btn danger" id="rdDelete">🗑 Delete</button>
+          <button class="mra-btn" id="rdBack" style="display:none;">← Back</button>
         </div>
         <div class="mail-read-body" id="rdBody"></div>
       </div>
@@ -254,51 +254,32 @@
       <div class="compose-options">
         <div class="compose-opt-row">
           <div class="compose-opt-text">
-            <div class="compose-opt-label">Email expiration</div>
+            <div class="compose-opt-label">⏳ Email expiration</div>
             <div class="compose-opt-sub">Automatically delete this email after a set date</div>
             <div class="compose-opt-input" id="cExpireInputWrap">
-              <div class="custom-dt-picker" id="cExpirePicker">
-                <input class="cdt-date" type="text" id="cExpireDate" placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"/>
-                <span class="cdt-sep">at</span>
-                <input class="cdt-time" type="text" id="cExpireTime" placeholder="HH:MM" maxlength="5" autocomplete="off"/>
-                <div class="cdt-cal" id="cExpireCal" style="display:none;"></div>
-              </div>
+              <input type="datetime-local" id="cExpireAt"/>
             </div>
           </div>
           <label class="opt-switch"><input type="checkbox" id="cExpireToggle"/><span class="slider"></span></label>
         </div>
-        <div class="compose-opt-row sd-locked" id="cSelfDestructRow">
+        <div class="compose-opt-row">
           <div class="compose-opt-text">
-            <div class="compose-opt-label">Self-destruct after reading</div>
+            <div class="compose-opt-label">🔥 Self-destruct after reading</div>
             <div class="compose-opt-sub">Deleted from the recipient's inbox once opened</div>
-            <!-- shown when recipient is not @360-search.com -->
-            <div class="sd-lock-hint" id="cSelfDestructLock">
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;opacity:.6"><rect x="5" y="9" width="10" height="8" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-              <span>Only available for @360-search.com recipients</span>
-              <div class="sd-bubble">
-                <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2Zm0 12a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-4H9V6h2v4Z"/></svg>
-                Self-destruct works because 360Mail controls the recipient's inbox directly. External providers cannot guarantee deletion.
-              </div>
-            </div>
           </div>
-          <label class="opt-switch"><input type="checkbox" id="cSelfDestructToggle" disabled/><span class="slider"></span></label>
+          <label class="opt-switch"><input type="checkbox" id="cSelfDestructToggle"/><span class="slider"></span></label>
         </div>
         <div class="compose-opt-row" id="cScheduleRow" style="display:none;border-bottom:none;">
           <div class="compose-opt-text">
             <div class="compose-opt-input show">
-              <div class="custom-dt-picker" id="cSchedulePicker">
-                <input class="cdt-date" type="text" id="cScheduleDate" placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"/>
-                <span class="cdt-sep">at</span>
-                <input class="cdt-time" type="text" id="cScheduleTime" placeholder="HH:MM" maxlength="5" autocomplete="off"/>
-                <div class="cdt-cal" id="cScheduleCal" style="display:none;"></div>
-              </div>
+              <input type="datetime-local" id="cScheduleAt"/>
             </div>
           </div>
         </div>
       </div>
       <div class="compose-footer">
-        <button class="compose-send-btn" id="cSendBtn">Send</button>
-        <button class="compose-schedule-btn" id="cScheduleBtn">Schedule</button>
+        <button class="compose-send-btn" id="cSendBtn"><span>✈</span> Send</button>
+        <button class="compose-schedule-btn" id="cScheduleBtn"><span>⏰</span> Schedule</button>
         <span class="compose-status" id="cStatus"></span>
       </div>
     </div>
@@ -367,32 +348,11 @@
     </div>
   </div>
 
-
-  <!-- ── ATTACHMENT VIEWER MODAL ── -->
-  <div class="modal-overlay" id="attViewerOverlay">
-    <div class="att-viewer-box">
-      <div class="att-viewer-header">
-        <span class="att-viewer-name" id="attViewerName"></span>
-        <div class="att-viewer-actions">
-          <label class="att-run-wrap" id="attRunWrap" style="display:none;">
-            <span>Run</span>
-            <label class="opt-switch" style="width:30px;height:17px;">
-              <input type="checkbox" id="attRunToggle"/>
-              <span class="slider"></span>
-            </label>
-          </label>
-          <a class="att-dl-btn" id="attViewerDl" href="#" download="">Download</a>
-          <button class="att-viewer-close" id="attViewerClose">&#10005;</button>
-        </div>
-      </div>
-      <div class="att-viewer-body" id="attViewerBody"></div>
-    </div>
-  </div>
-
   <script src="/assets/js/main.js"></script>
   <script src="/assets/js/wide.js"></script>
   <script src="/assets/js/cookie.js"></script>
   <script src="/assets/js/cursor.js"></script>
+
   <script src="/assets/js/mail.js"></script>
 </body>
 </html>
