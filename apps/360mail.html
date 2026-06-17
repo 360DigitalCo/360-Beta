@@ -257,7 +257,12 @@
             <div class="compose-opt-label">⏳ Email expiration</div>
             <div class="compose-opt-sub">Automatically delete this email after a set date</div>
             <div class="compose-opt-input" id="cExpireInputWrap">
-              <input type="datetime-local" id="cExpireAt"/>
+              <div class="custom-dt-picker" id="cExpirePicker">
+                <input class="cdt-date" type="text" id="cExpireDate" placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"/>
+                <span class="cdt-sep">at</span>
+                <input class="cdt-time" type="text" id="cExpireTime" placeholder="HH:MM" maxlength="5" autocomplete="off"/>
+                <div class="cdt-cal" id="cExpireCal" style="display:none;"></div>
+              </div>
             </div>
           </div>
           <label class="opt-switch"><input type="checkbox" id="cExpireToggle"/><span class="slider"></span></label>
@@ -272,7 +277,12 @@
         <div class="compose-opt-row" id="cScheduleRow" style="display:none;border-bottom:none;">
           <div class="compose-opt-text">
             <div class="compose-opt-input show">
-              <input type="datetime-local" id="cScheduleAt"/>
+              <div class="custom-dt-picker" id="cSchedulePicker">
+                <input class="cdt-date" type="text" id="cScheduleDate" placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"/>
+                <span class="cdt-sep">at</span>
+                <input class="cdt-time" type="text" id="cScheduleTime" placeholder="HH:MM" maxlength="5" autocomplete="off"/>
+                <div class="cdt-cal" id="cScheduleCal" style="display:none;"></div>
+              </div>
             </div>
           </div>
         </div>
