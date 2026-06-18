@@ -180,6 +180,32 @@
     .ac-logout-sub { font-size: 13px; color: var(--mut); }
     body.dark .ac-logout-sub { color: var(--mutd); }
 
+    /* ── 360ID: name row + avatar picker ── */
+    .ac-row { display: flex; gap: 10px; }
+    .ac-row .ac-field { flex: 1; min-width: 0; }
+
+    .ac-avatar-picker { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .ac-avatar-preview {
+      width: 84px; height: 84px; border-radius: 50%;
+      border: 2px solid var(--br); background: rgba(148,163,184,.12);
+      object-fit: cover;
+    }
+    .ac-avatar-controls { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+    .ac-avatar-toggle { display: flex; border: 1px solid var(--br); border-radius: 999px; overflow: hidden; }
+    .ac-toggle-btn {
+      padding: 6px 14px; border: none; background: transparent; cursor: pointer;
+      font-size: 12px; font-weight: 600; color: var(--mut); transition: .15s;
+    }
+    body.dark .ac-toggle-btn { color: var(--mutd); }
+    .ac-toggle-btn.active { background: var(--a); color: #050816; }
+    .ac-avatar-gen-controls { display: flex; align-items: center; gap: 8px; }
+    .ac-avatar-select {
+      padding: 8px 10px; border-radius: 9px; border: 1.5px solid var(--br);
+      background: rgba(255,255,255,.75); color: var(--txt); font-size: 13px; outline: none;
+    }
+    body.dark .ac-avatar-select { background: rgba(255,255,255,.06); color: var(--txtd); border-color: rgba(255,255,255,.12); }
+    .ac-avatar-gen-controls .ac-sec-btn { width: auto; padding: 8px 12px; font-size: 13px; }
+
     /* ── PASSWORD STRENGTH METER ── */
     .pw-strength-wrap { margin-top: 6px; }
     .pw-bar-track { height: 3px; background: rgba(148,163,184,.2); border-radius: 999px; overflow: hidden; margin-bottom: 5px; }
@@ -411,7 +437,16 @@
         if (_signInBtn)  _signInBtn.style.display  = "none";
         if (_signUpBtn)  _signUpBtn.style.display  = "none";
         if (_signOutBtn) _signOutBtn.style.display = "inline-block";
-        showProfile(session.user);
+        const { data: profile } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+        // Google/GitHub don't hand over a birthdate, so anyone who just signed
+        // in via OAuth and hasn't completed that bit yet gets a one-time
+        // prompt. Pre-existing accounts that predate this field are left alone.
+        const cameFromOAuth = session.user.app_metadata?.provider && session.user.app_metadata.provider !== "email";
+        if (cameFromOAuth && profile && !profile.birthdate) {
+          renderCompleteProfile(session.user, profile, false);
+        } else {
+          showProfile(session.user, profile);
+        }
       } else {
         if (_signInBtn)  _signInBtn.style.display  = "inline-block";
         if (_signUpBtn)  _signUpBtn.style.display  = "inline-block";
@@ -602,10 +637,27 @@
        SIGN UP
     ════════════════ */
     function renderSignUp() {
+      const avState = { mode: "generated", style: "avataaars", seed: randomSeed(), providerUrl: null };
       content.innerHTML = `
         <div class="ac-tabs">
           <button class="ac-tab"        id="tabSI">Sign In</button>
           <button class="ac-tab active" id="tabSU">Sign Up</button>
+        </div>
+        <p style="text-align:center;font-size:12px;color:var(--mut);margin:-4px 0 14px;">Create your 360ID — one account for everything in 360.</p>
+        ${avatarPickerHTML("su", avState)}
+        <div class="ac-row">
+          <div class="ac-field">
+            <label>First name</label>
+            <input id="suFirst" type="text" placeholder="Jane" autocomplete="given-name" maxlength="60" />
+          </div>
+          <div class="ac-field">
+            <label>Last name <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+            <input id="suLast" type="text" placeholder="Doe" autocomplete="family-name" maxlength="60" />
+          </div>
+        </div>
+        <div class="ac-field">
+          <label>Birthdate</label>
+          <input id="suBirthdate" type="date" autocomplete="bday" />
         </div>
         <div class="ac-field">
           <label>Email</label>
@@ -640,7 +692,7 @@
           <span class="ac-hint" id="confirmHint"></span>
         </div>
         <p class="ac-msg" id="suMsg"></p>
-        <button class="ac-btn" id="suBtn">Create Account</button>
+        <button class="ac-btn" id="suBtn">Create 360ID</button>
         <div class="ac-divider">or continue with</div>
         <div class="ac-oauth">
           <button class="ac-oauth-btn" id="suGithub">
@@ -654,6 +706,8 @@
         </div>
         <p class="ac-switch">Already have an account? <a href="/account?signin">Sign In</a></p>
       `;
+      wireAvatarPicker("su", avState);
+      window._suAvatarState = avState;
 
       document.getElementById("tabSI").onclick = () => { history.replaceState(null,"","/account?signin&from="+encodeURIComponent(_redirectTo)); renderSignIn(); };
       document.getElementById("tabSU").onclick = () => { history.replaceState(null,"","/account?signup&from="+encodeURIComponent(_redirectTo)); renderSignUp(); };
@@ -700,11 +754,16 @@
     }
 
     async function doSignUp(usernameOk) {
-      const email    = document.getElementById("suEmail").value.trim();
-      const username = document.getElementById("suUser").value.trim();
-      const password = document.getElementById("suPass").value;
-      const confirm  = document.getElementById("suConfirm").value;
+      const firstName = document.getElementById("suFirst").value.trim();
+      const lastName  = document.getElementById("suLast").value.trim();
+      const birthdate = document.getElementById("suBirthdate").value;
+      const email     = document.getElementById("suEmail").value.trim();
+      const username  = document.getElementById("suUser").value.trim();
+      const password  = document.getElementById("suPass").value;
+      const confirm   = document.getElementById("suConfirm").value;
       const btn=document.getElementById("suBtn"), msg=document.getElementById("suMsg");
+      if (!firstName)                              { setMsg(msg,"First name is required.","err"); return; }
+      if (!birthdate)                               { setMsg(msg,"Birthdate is required.","err"); return; }
       if (!email||!username||!password||!confirm) { setMsg(msg,"All fields are required.","err"); return; }
       // No domain restriction — any valid email is accepted
       if (!/^[a-zA-Z0-9_]{3,32}$/.test(username)) { setMsg(msg,"Username must be 3–32 chars, letters/numbers/underscores only.","err"); return; }
@@ -712,31 +771,98 @@
       if (password!==confirm)                      { setMsg(msg,"Passwords do not match.","err"); return; }
       const { data: existing } = await sb.from("profiles").select("id").eq("username",username).maybeSingle();
       if (existing) { setMsg(msg,"That username is already taken.","err"); return; }
-      btn.disabled=true; btn.textContent="Creating account…"; setMsg(msg,"","");
+      btn.disabled=true; btn.textContent="Creating your 360ID…"; setMsg(msg,"","");
+
+      const avState   = window._suAvatarState || { mode:"generated", style:"avataaars", seed:randomSeed() };
+      const avatarUrl = resolvedAvatarUrl(avState);
+
       const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
-        email, password, options: { data: { username } }
+        email, password, options: { data: {
+          username, first_name: firstName, last_name: lastName || null, birthdate,
+          avatar_style: avState.style, avatar_seed: avState.seed,
+        } }
       });
-      if (signUpErr) { setMsg(msg,signUpErr.message,"err"); btn.disabled=false; btn.textContent="Create Account"; return; }
+      if (signUpErr) { setMsg(msg,signUpErr.message,"err"); btn.disabled=false; btn.textContent="Create 360ID"; return; }
       const userId=signUpData?.user?.id;
-      if (userId) await sb.from("profiles").upsert({ id:userId, username, email }, { onConflict:"id" });
-      setMsg(msg,'Account created! Check your email to confirm, then <a href="/account?signin" style="color:var(--a)">sign in</a>.','ok');
+      if (userId) await sb.from("profiles").upsert({
+        id: userId, username, email,
+        first_name: firstName, last_name: lastName || null, birthdate,
+        avatar_url: avatarUrl, avatar_style: avState.style, avatar_seed: avState.seed,
+      }, { onConflict:"id" });
+      setMsg(msg,'360ID created! Check your email to confirm, then <a href="/account?signin" style="color:var(--a)">sign in</a>.','ok');
       btn.textContent="Check your email ✓";
     }
 
     /* ════════════════
        PROFILE
     ════════════════ */
-    async function showProfile(user) {
-      const { data: profile } = await sb.from("profiles").select("username,avatar_url").eq("id",user.id).maybeSingle();
+    function renderCompleteProfile(user, profile, isEdit) {
+      const providerUrl = profile.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+      const avState = {
+        mode: providerUrl ? "provider" : "generated",
+        style: profile.avatar_style || "avataaars",
+        seed: profile.avatar_seed || randomSeed(),
+        providerUrl,
+      };
+      const providerName = user.app_metadata?.provider && user.app_metadata.provider !== "email" ? user.app_metadata.provider : "your provider";
+      content.innerHTML = `
+        <p style="text-align:center;font-size:15px;font-weight:700;margin-bottom:2px;">${isEdit ? "Edit your 360ID" : "Finish setting up your 360ID"}</p>
+        ${isEdit ? "" : `<p style="text-align:center;font-size:12px;color:var(--mut);margin:0 0 14px;">We imported your name and photo from ${esc(providerName)} — just a couple more things.</p>`}
+        ${avatarPickerHTML("cp", avState)}
+        <div class="ac-row">
+          <div class="ac-field">
+            <label>First name</label>
+            <input id="cpFirst" type="text" value="${esc(profile.first_name||"")}" maxlength="60" />
+          </div>
+          <div class="ac-field">
+            <label>Last name <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+            <input id="cpLast" type="text" value="${esc(profile.last_name||"")}" maxlength="60" />
+          </div>
+        </div>
+        <div class="ac-field">
+          <label>Birthdate</label>
+          <input id="cpBirthdate" type="date" value="${esc(profile.birthdate||"")}" />
+        </div>
+        <p class="ac-msg" id="cpMsg"></p>
+        <button class="ac-btn" id="cpBtn">${isEdit ? "Save changes" : "Finish setup"}</button>
+        ${isEdit ? `<button class="ac-sec-btn" style="margin-top:8px;" id="cpCancel">← Back</button>` : ""}
+      `;
+      wireAvatarPicker("cp", avState);
+      document.getElementById("cpCancel")?.addEventListener("click", () => showProfile(user));
+      document.getElementById("cpBtn").onclick = async () => {
+        const firstName = document.getElementById("cpFirst").value.trim();
+        const lastName  = document.getElementById("cpLast").value.trim();
+        const birthdate = document.getElementById("cpBirthdate").value;
+        const btn = document.getElementById("cpBtn"), msg = document.getElementById("cpMsg");
+        if (!firstName) { setMsg(msg,"First name is required.","err"); return; }
+        if (!birthdate) { setMsg(msg,"Birthdate is required.","err"); return; }
+        btn.disabled = true; btn.textContent = "Saving…";
+        const { error, data } = await sb.from("profiles").update({
+          first_name: firstName, last_name: lastName || null, birthdate,
+          avatar_url: resolvedAvatarUrl(avState), avatar_style: avState.style, avatar_seed: avState.seed,
+        }).eq("id", user.id).select("*").maybeSingle();
+        if (error) { setMsg(msg, error.message, "err"); btn.disabled=false; btn.textContent=isEdit?"Save changes":"Finish setup"; return; }
+        showProfile(user, data);
+      };
+    }
+
+    async function showProfile(user, preloadedProfile) {
+      const profile = preloadedProfile || (await sb.from("profiles").select("*").eq("id",user.id).maybeSingle()).data;
       const username = profile?.username || user.user_metadata?.username || user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+      const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || username;
+      const avatarUrl = profile?.avatar_url;
       content.innerHTML = `
         <div class="ac-profile">
-          <div class="ac-avatar">${username.charAt(0).toUpperCase()}</div>
+          ${avatarUrl
+            ? `<img src="${esc(avatarUrl)}" class="ac-avatar" style="object-fit:cover;" alt="${esc(fullName)}" />`
+            : `<div class="ac-avatar">${esc(username.charAt(0).toUpperCase())}</div>`}
           <div>
-            <div class="ac-pname">${esc(username)}</div>
-            <div class="ac-pemail">${esc(user.email||"")}</div>
+            <div class="ac-pname">${esc(fullName)}</div>
+            <div class="ac-pemail">${esc(user.email||"")} · @${esc(username)}</div>
           </div>
+          <button class="ac-sec-btn" id="editProfileBtn">✏️ Edit your 360ID</button>
           <p class="ac-msg" id="profMsg"></p>
+
 
           <div class="ac-field" style="margin-top:18px;">
             <label>Phone Number</label>
@@ -758,6 +884,7 @@
           <button class="ac-sec-btn ac-signout-btn" id="pgSignOut">Sign Out</button>
         </div>
       `;
+      document.getElementById("editProfileBtn").onclick = () => renderCompleteProfile(user, profile || {}, true);
       document.getElementById("pgSignOut").onclick = async () => {
         const b=document.getElementById("pgSignOut");
         b.textContent="Signing out…"; b.disabled=true;
@@ -892,6 +1019,74 @@
     function setMsg(el,text,type)  { if(!el)return; el.textContent=text; el.className="ac-msg"+(type?" "+type:""); }
     function setHint(el,text,type) { if(!el)return; el.textContent=text; el.className="ac-hint"+(type?" "+type:""); }
     function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+    /* ════════════════
+       360ID — AVATAR PICKER
+       Algorithmic, customizable PFPs (DiceBear) used at signup and for
+       completing/editing a 360ID. If the person signed up via Google/GitHub,
+       the picker defaults to their imported provider photo with the option
+       to switch to a generated one instead.
+    ════════════════ */
+    const AVATAR_STYLES = [
+      { id: "avataaars", label: "Avataaars" },
+      { id: "bottts",    label: "Bots" },
+      { id: "pixel-art", label: "Pixel Art" },
+      { id: "fun-emoji", label: "Fun Emoji" },
+      { id: "shapes",    label: "Shapes" },
+      { id: "identicon", label: "Identicon" },
+    ];
+    function dicebearUrl(style, seed) {
+      return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed||"360")}`;
+    }
+    function randomSeed() { return Math.random().toString(36).slice(2, 10); }
+
+    // state: { mode: "provider"|"generated", style, seed, providerUrl }
+    function avatarPickerHTML(idPrefix, state) {
+      const hasProvider = !!state.providerUrl;
+      const previewSrc = state.mode === "provider" && hasProvider ? state.providerUrl : dicebearUrl(state.style, state.seed);
+      return `
+        <div class="ac-avatar-picker">
+          <img class="ac-avatar-preview" id="${idPrefix}Preview" src="${previewSrc}" alt="Avatar preview" />
+          <div class="ac-avatar-controls">
+            ${hasProvider ? `
+              <div class="ac-avatar-toggle">
+                <button type="button" class="ac-toggle-btn${state.mode==="provider"?" active":""}" id="${idPrefix}UseProvider">Imported photo</button>
+                <button type="button" class="ac-toggle-btn${state.mode==="generated"?" active":""}" id="${idPrefix}UseGenerated">Generated avatar</button>
+              </div>` : ``}
+            <div class="ac-avatar-gen-controls" id="${idPrefix}GenControls" style="${hasProvider && state.mode==="provider" ? "display:none;" : ""}">
+              <select id="${idPrefix}Style" class="ac-avatar-select">
+                ${AVATAR_STYLES.map(s => `<option value="${s.id}"${s.id===state.style?" selected":""}>${s.label}</option>`).join("")}
+              </select>
+              <button type="button" class="ac-sec-btn" id="${idPrefix}Shuffle">🎲 Shuffle</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    function wireAvatarPicker(idPrefix, state) {
+      const img    = document.getElementById(idPrefix+"Preview");
+      const sel    = document.getElementById(idPrefix+"Style");
+      const shufBtn= document.getElementById(idPrefix+"Shuffle");
+      const genCtl = document.getElementById(idPrefix+"GenControls");
+      const useProv= document.getElementById(idPrefix+"UseProvider");
+      const useGen = document.getElementById(idPrefix+"UseGenerated");
+      function refresh() {
+        img.src = (state.mode === "provider" && state.providerUrl) ? state.providerUrl : dicebearUrl(state.style, state.seed);
+      }
+      sel?.addEventListener("change", () => { state.style = sel.value; refresh(); });
+      shufBtn?.addEventListener("click", () => { state.seed = randomSeed(); refresh(); });
+      useProv?.addEventListener("click", () => {
+        state.mode = "provider"; useProv.classList.add("active"); useGen.classList.remove("active");
+        genCtl.style.display = "none"; refresh();
+      });
+      useGen?.addEventListener("click", () => {
+        state.mode = "generated"; useGen.classList.add("active"); useProv.classList.remove("active");
+        genCtl.style.display = ""; refresh();
+      });
+    }
+    function resolvedAvatarUrl(state) {
+      return (state.mode === "provider" && state.providerUrl) ? state.providerUrl : dicebearUrl(state.style, state.seed);
+    }
   </script>
 </body>
 </html>
