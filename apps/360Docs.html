@@ -290,28 +290,29 @@
     .docs-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15,23,42,.55);
-      backdrop-filter: blur(6px);
+      background: var(--docs-page-bg);
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
       opacity: 0;
+      visibility: hidden;
       pointer-events: none;
-      transition: opacity .2s;
+      transition: opacity .15s;
       z-index: 80;
     }
     .docs-modal-overlay.open {
       opacity: 1;
+      visibility: visible;
       pointer-events: all;
     }
 
     .docs-modal {
       width: 100%;
-      max-width: 1100px;
-      max-height: 94vh;
+      height: 100%;
+      max-width: none;
+      max-height: none;
       background: var(--docs-page-bg);
-      border-radius: 18px;
-      border: 1px solid var(--docs-border);
+      border-radius: 0;
+      border: none;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -406,10 +407,27 @@
       padding: 32px 40px;
       min-height: 600px;
       position: relative;
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+      transition: outline-color .2s;
     }
     body.dark .docs-page {
       background: #020617;
       box-shadow: 0 0 0 1px rgba(148,163,184,.35), 0 18px 40px rgba(15,23,42,.6);
+    }
+
+    .docs-page-editor-badge {
+      position: absolute;
+      top: -11px;
+      left: 16px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(15,23,42,.25);
+      white-space: nowrap;
+      pointer-events: none;
     }
 
     .docs-page-number {
@@ -807,6 +825,8 @@
     let presenceChannel = null;
     let docChannel = null;
     let isCommentMode = false;
+    let pendingPageUpdates = {}; // pageIndex -> html queued while locally focused there
+    let myActivePage = null;
 
     const docsAvatar = document.getElementById('docsAvatar');
     const docsGrid = document.getElementById('docsGrid');
@@ -1010,7 +1030,19 @@
       content.innerHTML = html || '';
       content.addEventListener('input', () => {
         scheduleAutoSave();
-        broadcastChange();
+        broadcastPageChange(pageIndex);
+      });
+      content.addEventListener('focus', () => trackActivePage(pageIndex));
+      content.addEventListener('blur', () => {
+        // Apply any remote edit to this page that arrived while we were typing in it
+        if (pendingPageUpdates[pageIndex] != null) {
+          const html = pendingPageUpdates[pageIndex];
+          delete pendingPageUpdates[pageIndex];
+          if (content.innerHTML !== html) content.innerHTML = html;
+          const p = pages.find(p => p.index === pageIndex);
+          if (p) p.html = content.innerHTML;
+        }
+        if (myActivePage === pageIndex) trackActivePage(null);
       });
 
       toolbar.addEventListener('click', e => {
@@ -1027,7 +1059,7 @@
         content.focus();
         document.execCommand(cmd, false, val);
         scheduleAutoSave();
-        broadcastChange();
+        broadcastPageChange(pageIndex);
       });
 
       const pageNumber = document.createElement('div');
@@ -1049,10 +1081,13 @@
     }
 
     function addPage() {
-      pages.push({ index: pages.length, html: '' });
+      const idx = pages.length;
+      pages.push({ index: idx, html: '' });
       renderPages();
       scheduleAutoSave();
-      broadcastChange();
+      if (docChannel) {
+        docChannel.send({ type: 'broadcast', event: 'page-add', payload: { source: currentUser?.id, index: idx } });
+      }
     }
 
     function collectPagesFromDOM() {
@@ -1402,7 +1437,8 @@
             presenceChannel.track({
               user_id: currentUser?.id,
               email: currentUser?.email,
-              at: new Date().toISOString()
+              at: new Date().toISOString(),
+              activePage: myActivePage
             });
           }
         });
@@ -1410,13 +1446,36 @@
       docChannel = sb.channel(channelName);
 
       docChannel
-        .on('broadcast', { event: 'doc-change' }, payload => {
+        // Only the one page that actually changed travels over the wire —
+        // not the whole document on every keystroke — and if the local user
+        // is mid-edit in that exact page, the update is queued rather than
+        // yanking their cursor; it's applied as soon as they blur out of it.
+        .on('broadcast', { event: 'page-change' }, payload => {
           if (!currentDoc) return;
-          if (payload?.payload?.source === currentUser?.id) return;
-          if (payload?.payload?.pages) {
-            pages = payload.payload.pages;
+          const { source, pageIndex, html } = payload?.payload || {};
+          if (source === currentUser?.id || pageIndex == null) return;
+          const p = pages.find(p => p.index === pageIndex);
+          if (p) p.html = html; else pages.push({ index: pageIndex, html });
+          const pageEl = docsPageStack.querySelector(`.docs-page[data-index="${pageIndex}"] .docs-page-content`);
+          if (!pageEl) return;
+          if (document.activeElement === pageEl) {
+            pendingPageUpdates[pageIndex] = html;
+          } else {
+            pageEl.innerHTML = html;
+          }
+        })
+        .on('broadcast', { event: 'page-add' }, payload => {
+          const { source, index } = payload?.payload || {};
+          if (source === currentUser?.id || index == null) return;
+          if (!pages.some(p => p.index === index)) {
+            pages.push({ index, html: '' });
             renderPages();
           }
+        })
+        .on('broadcast', { event: 'title-change' }, payload => {
+          const { source, title } = payload?.payload || {};
+          if (source === currentUser?.id) return;
+          if (document.activeElement !== docTitleInput) docTitleInput.value = title || '';
         })
         .on('broadcast', { event: 'comment' }, payload => {
           const c = payload?.payload;
@@ -1444,32 +1503,79 @@
         docChannel = null;
       }
       docsPresence.innerHTML = '';
+      pendingPageUpdates = {};
+      myActivePage = null;
+      document.querySelectorAll('.docs-page').forEach(p => {
+        p.style.outlineColor = 'transparent';
+        p.querySelector('.docs-page-editor-badge')?.remove();
+      });
+    }
+
+    // Small consistent color per user, derived from their id/email — used for
+    // both their presence avatar and the "X is editing here" page badge.
+    function colorForUser(key) {
+      const palette = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+      let hash = 0;
+      String(key).split('').forEach(c => { hash = (hash * 31 + c.charCodeAt(0)) >>> 0; });
+      return palette[hash % palette.length];
+    }
+
+    function trackActivePage(idx) {
+      myActivePage = idx;
+      if (presenceChannel) {
+        presenceChannel.track({
+          user_id: currentUser?.id,
+          email: currentUser?.email,
+          at: new Date().toISOString(),
+          activePage: idx
+        });
+      }
     }
 
     function renderPresence(state) {
       const users = [];
-      Object.values(state || {}).forEach(arr => {
-        arr.forEach(entry => {
-          users.push(entry);
-        });
-      });
-      docsPresence.innerHTML = users.map(u => {
+      Object.values(state || {}).forEach(arr => arr.forEach(entry => users.push(entry)));
+      const others = users.filter(u => u.user_id !== currentUser?.id);
+
+      docsPresence.innerHTML = others.map(u => {
         const email = u.email || 'user';
         const initials = email[0].toUpperCase();
-        return `<div class="docs-presence-avatar" title="${escHtml(email)}">${initials}</div>`;
+        const color = colorForUser(u.user_id || email);
+        return `<div class="docs-presence-avatar" style="background:${color};color:#fff;" title="${escHtml(email)} is here">${initials}</div>`;
       }).join('');
+
+      document.querySelectorAll('.docs-page').forEach(pageEl => {
+        const idx = Number(pageEl.dataset.index);
+        const editor = others.find(u => u.activePage === idx);
+        let badge = pageEl.querySelector('.docs-page-editor-badge');
+        if (editor) {
+          const color = colorForUser(editor.user_id || editor.email);
+          pageEl.style.outlineColor = color;
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'docs-page-editor-badge';
+            pageEl.appendChild(badge);
+          }
+          badge.style.background = color;
+          badge.textContent = `✏️ ${(editor.email || 'Someone').split('@')[0]} is editing here`;
+        } else {
+          pageEl.style.outlineColor = 'transparent';
+          if (badge) badge.remove();
+        }
+      });
     }
 
-    function broadcastChange() {
+    function broadcastPageChange(idx) {
       if (!docChannel || !currentDoc) return;
-      collectPagesFromDOM();
+      const pageEl = docsPageStack.querySelector(`.docs-page[data-index="${idx}"] .docs-page-content`);
+      if (!pageEl) return;
+      const html = pageEl.innerHTML;
+      const p = pages.find(p => p.index === idx);
+      if (p) p.html = html; else pages.push({ index: idx, html });
       docChannel.send({
         type: 'broadcast',
-        event: 'doc-change',
-        payload: {
-          source: currentUser?.id,
-          pages
-        }
+        event: 'page-change',
+        payload: { source: currentUser?.id, pageIndex: idx, html }
       });
     }
 
@@ -1480,7 +1586,9 @@
 
     docTitleInput.addEventListener('input', () => {
       scheduleAutoSave();
-      broadcastChange();
+      if (docChannel) {
+        docChannel.send({ type: 'broadcast', event: 'title-change', payload: { source: currentUser?.id, title: docTitleInput.value } });
+      }
     });
 
     document.getElementById('docsCommentSubmit').addEventListener('click', postComment);
