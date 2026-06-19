@@ -1642,4 +1642,3 @@ switchRoom = function(room) {
 
 /* Load counts 1.5s after init so auth is settled */
 setTimeout(() => { if (currentUserId) loadUnreadCounts(); }, 1500);
-
