@@ -922,9 +922,10 @@ document.getElementById("lightbox-close").onclick=()=>document.getElementById("l
 ══════════════════════════════════════════════════════ */
 function startPresence(){
   if(!currentUserId)return;
-  sb.channel("presence-global",{config:{presence:{key:currentUserId}}})
-    .on("presence",{event:"sync"},function(){document.getElementById("onlineCount").textContent=Object.keys(this.presenceState()).length;})
-    .subscribe(async s=>{if(s==="SUBSCRIBED")await sb.channel("presence-global").track({uid:currentUserId,username:currentProfile?.username});});
+  const presenceChan=sb.channel("presence-global",{config:{presence:{key:currentUserId}}});
+  presenceChan
+    .on("presence",{event:"sync"},()=>{document.getElementById("onlineCount").textContent=Object.keys(presenceChan.presenceState()).length;})
+    .subscribe(async s=>{if(s==="SUBSCRIBED")await presenceChan.track({uid:currentUserId,username:currentProfile?.username});});
 }
 
 let notifEnabled=Notification?.permission==="granted";
