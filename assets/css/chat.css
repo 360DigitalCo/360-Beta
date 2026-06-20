@@ -1,5 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   360 Chat - Discord Clone Ahh
+   360 Chat — Discord Mode
+   All layouts are scoped to .dc-* so they don't bleed into
+   main.css. Dark/light follows body.dark exactly like the
+   rest of the 360 platform.
 ═══════════════════════════════════════════════════════════ */
 
 /* ── Layout reset ────────────────────────────────────────── */
@@ -11,9 +14,42 @@
   flex-direction: row;
   background: var(--bg);
 }
-/* Hide the main.css sidebar/nav since we have our own rail */
-.sidebar, .sidebar-toggle, .overlay,
-.settings-panel, #settingsPanel { display: none !important; }
+/* The platform-wide nav sidebar (.sidebar), settings panel, and overlay are
+   all position:fixed with transform-based slide-in/out (see main.css) — true
+   overlays that sit ABOVE the Discord layout, not part of its flex flow.
+   They're left fully functional here, just visually restyled below so the
+   floating "☰ Menu" button integrates into the rail instead of overlapping
+   the rail logo at the same top-left corner. */
+.sidebar-toggle {
+  position: static;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: var(--dc-input-bg);
+  color: var(--dc-text);
+  font-size: 16px;
+  padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none;
+  margin: 0;
+  flex-shrink: 0;
+  transition: border-radius .15s, background .15s;
+}
+.sidebar-toggle:hover { background: var(--dc-ch-hover); border-radius: 14px; }
+/* Platform nav must win over every Discord-mode overlay (thread panel z100,
+   modals z300, lightbox z1000) — global navigation should never be buried
+   behind in-page UI. */
+.sidebar, .settings-panel, .overlay { z-index: 5000 !important; }
+
+/* main.js builds .user-chip inside .auth-top-right (position:fixed in
+   main.css) — without that container present, buildUserChip() falls back to
+   appending the chip directly onto <body>, which is a flex row in Discord
+   mode, so the chip becomes an unwanted flex child and squeezes the entire
+   3-panel layout sideways. Keeping .auth-top-right in the DOM (even though
+   Discord mode uses its own rail-user avatar, not these buttons) prevents
+   that. It stays empty/invisible — signIn/signUp/signOut buttons are hidden
+   by main.js itself once a session exists, and we hide them outright here
+   since the rail already covers sign-in via railUser. */
+#signInBtn, #signUpBtn, #signOutBtn, .auth-top-right .user-chip { display: none !important; }
 
 /* ── CSS custom properties (chat-specific) ───────────────── */
 :root {
