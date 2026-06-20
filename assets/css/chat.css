@@ -14,6 +14,18 @@
   flex-direction: row;
   background: var(--bg);
 }
+/* .dc-root wraps rail+sidebar+main and must itself be the flex row —
+   .dc-body being flex only lays out its OWN direct children that way;
+   without this rule .dc-root defaults to display:block and its three
+   children (rail/sidebar/main) stack vertically instead of side-by-side. */
+.dc-root {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
 /* The platform-wide nav sidebar (.sidebar), settings panel, and overlay are
    all position:fixed with transform-based slide-in/out (see main.css) — true
    overlays that sit ABOVE the Discord layout, not part of its flex flow.
