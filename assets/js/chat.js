@@ -597,7 +597,7 @@ async function sendThreadMsg(){
   const inp=document.getElementById("thread-input");const text=inp.value.trim();if(!text)return;
   const p=currentProfile;inp.value="";
   await sb.from("messages").insert({user_id:currentUserId,username:p.username,avatar_url:p.avatar_url,text:filterProfanity(applyShortcodes(text)),thread_id:activeThreadId,channel_id:activeRoom.type==="channel"?activeRoom.id:null});
-  await sb.rpc("increment_thread_count",{msg_id:activeThreadId}).catch(()=>{});
+  try { await sb.rpc("increment_thread_count",{msg_id:activeThreadId}); } catch(e) {}
   await loadThreadMsgs(activeThreadId);
 }
 
@@ -946,11 +946,16 @@ function trackUnread(msg){
   if(!document.hasFocus()){const orig=document.title;let i=0;const ti=setInterval(()=>{document.title=i++%2===0?"💬 New message!":orig;if(i>6){clearInterval(ti);document.title=orig;}},700);}
 }
 
-function markRoomRead(room){
+async function markRoomRead(room){
   if(!currentUserId)return;
   unreadCounts[getRoomKey(room)]=0;
   document.querySelector(`.rail-server-icon[data-server-id="${room.serverId}"]`)?.classList.remove("unread");
-  sb.from("last_read").upsert({user_id:currentUserId,room_type:room.type,room_id:String(room.id),last_read_at:new Date().toISOString()},{onConflict:"user_id,room_type,room_id"}).catch(()=>{});
+  try {
+    await sb.from("last_read").upsert(
+      {user_id:currentUserId,room_type:room.type,room_id:String(room.id),last_read_at:new Date().toISOString()},
+      {onConflict:"user_id,room_type,room_id"}
+    );
+  } catch(e) { console.warn("markRoomRead:",e); }
 }
 
 /* ══════════════════════════════════════════════════════
