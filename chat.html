@@ -19,6 +19,69 @@
 <body class="dc-body">
 <div class="cursor-dot"></div><div class="cursor-trail"></div><div class="cursor-crosshair"></div><div class="cursor-blob"></div>
 
+<!-- Platform-wide nav (slides in over the Discord layout; toggle lives in the rail) -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header"><div class="logo-mark"></div><button id="settingsBtn">⚙</button></div>
+  <nav class="nav-list">
+    <div class="nav-item" data-href="../">Home</div>
+    <div class="nav-item" data-href="../ai">AI</div>
+    <div class="nav-item" data-href="../weather">Weather</div>
+    <div class="nav-item" data-href="../translator">Translator</div>
+    <div class="nav-item" data-href="../stocks">Stocks</div>
+    <div class="nav-item" data-href="../url-shortener">URL Shortener</div>
+    <div class="nav-item active" data-href="../chat">Chat</div>
+    <div class="nav-item" data-href="../news">News</div>
+    <div class="nav-item" data-href="../apps">Apps</div>
+    <div class="nav-item" data-href="../games">Games</div>
+  </nav>
+  <div class="sidebar-footer"><span id="sidebar-ver">Loading...</span></div>
+</aside>
+<div class="overlay" id="overlay"></div>
+
+<div class="settings-panel" id="settingsPanel">
+  <h3>Appearance</h3>
+  <div class="settings-label">Theme</div>
+  <div class="theme-swatches">
+    <div class="theme-option"><div class="swatch" data-theme="ocean"></div><span>Ocean</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="midnight"></div><span>Midnight</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="sunset"></div><span>Sunset</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="mint"></div><span>Mint</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="neon"></div><span>Neon</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="mono"></div><span>Mono</span></div>
+  </div>
+  <div class="settings-label" style="margin-top:20px;">Mode</div>
+  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+    <span style="font-size:14px;">Dark mode</span>
+    <input type="checkbox" id="darkToggle" />
+  </label>
+  <h3 style="margin-top:20px;">Cursor</h3>
+  <div class="settings-label">Style</div>
+  <div class="cursor-options">
+    <div class="cursor-option active" data-cursor="default"><div class="cursor-preview preview-default"></div>Default</div>
+    <div class="cursor-option" data-cursor="dot"><div class="cursor-preview preview-dot"></div>Dot</div>
+    <div class="cursor-option" data-cursor="ring"><div class="cursor-preview preview-ring"></div>Ring</div>
+    <div class="cursor-option" data-cursor="crosshair"><div class="cursor-preview preview-crosshair"></div>Crosshair</div>
+    <div class="cursor-option" data-cursor="blob"><div class="cursor-preview preview-blob"></div>Blob</div>
+    <div class="cursor-option" data-cursor="system"><div class="cursor-preview preview-system"></div>System</div>
+  </div>
+  <div class="cursor-color-row">
+    <label>Cursor color</label>
+    <input type="color" id="cursorColorPicker" value="#3b82f6" />
+    <button id="cursorColorReset">Reset</button>
+  </div>
+</div>
+
+<!-- main.js mounts the user-chip here; kept in the DOM as a fixed-position
+     anchor so it never falls back to appending onto <body> (which would
+     become an unwanted flex child of .dc-body and break the 3-panel layout).
+     Hidden in Discord mode since the rail's own avatar (railUser) already
+     covers identity/sign-in. -->
+<div class="auth-top-right">
+  <button id="signInBtn" class="auth-btn">Sign In</button>
+  <button id="signUpBtn" class="auth-btn">Sign Up</button>
+  <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
+</div>
+
 <!-- Context menu -->
 <div id="ctx-menu" class="ctx-menu hidden">
   <div class="ctx-item" id="ctx-reply">↩ Reply</div>
@@ -142,6 +205,7 @@
     <a href="/" class="rail-home" title="360 Home">
       <div class="rail-logo">3</div>
     </a>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Menu">☰</button>
     <div class="rail-divider"></div>
     <div id="rail-servers"></div>
     <button class="rail-add-btn" id="railAddServer" title="Create or browse servers">＋</button>
