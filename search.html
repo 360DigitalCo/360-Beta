@@ -275,6 +275,32 @@
     body.dark .suggestion-icon { color: var(--mutd); }
 
     .suggestion-text { flex: 1; }
+    .suggestion-remove {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--mut);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity .12s, background .12s, color .12s;
+    }
+    .suggestion-item:hover .suggestion-remove { opacity: 1; }
+    .suggestion-remove:hover { background: rgba(0,0,0,0.10); color: var(--txt); }
+    body.dark .suggestion-remove:hover { background: rgba(255,255,255,0.12); color: var(--txtd); }
+    .suggestion-footer {
+      padding: 9px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--mut);
+      text-align: center;
+      cursor: pointer;
+      transition: color .12s;
+    }
+    .suggestion-footer:hover { color: var(--a); }
+    body.dark .suggestion-footer { color: var(--mutd); }
     .suggestion-text em {
       font-style: normal;
       font-weight: 700;
@@ -299,6 +325,32 @@
       width: 100%;
       max-width: 900px;
       box-sizing: border-box;
+    }
+    .safe-search-toggle {
+      margin-left: auto;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--mut);
+      background: transparent;
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s, background .15s;
+      white-space: nowrap;
+    }
+    .safe-search-toggle:hover { color: var(--txt); border-color: var(--a); }
+    .safe-search-toggle.off { color: #ef4444; border-color: rgba(239,68,68,0.4); }
+    body.dark .safe-search-toggle { color: var(--mutd); border-color: var(--glass-border-dk); }
+    body.dark .safe-search-toggle:hover { color: var(--txtd); border-color: var(--a); }
+    @media (max-width: 640px) {
+      .safe-search-toggle span { display: none; }
+      .safe-search-toggle { padding: 7px 9px; }
     }
     .results-tab {
       display: flex;
@@ -375,6 +427,132 @@
     body.dark #knowledge-panel { background: var(--glass-dark-mid); border-color: var(--glass-border-dk); box-shadow: var(--glass-shadow-sm), var(--glass-inset-dk);}
     #knowledge-panel.active { display:block; }
     .kp-image { width: 100%; height: 170px; object-fit: cover; border-radius: 12px; margin-bottom: 10px; }
+
+    .kp-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--txt);
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+    body.dark .kp-title { color: var(--txtd); }
+    .kp-subtext {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--mut);
+      margin-bottom: 10px;
+    }
+    body.dark .kp-subtext { color: var(--mutd); }
+    .kp-desc {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--txt);
+      margin-bottom: 12px;
+    }
+    body.dark .kp-desc { color: var(--txtd); }
+    .kp-source {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--a);
+      text-decoration: none;
+      margin-bottom: 14px;
+    }
+    .kp-source:hover { text-decoration: underline; }
+
+    .kp-related-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--mut);
+      margin: 4px 0 8px;
+      padding-top: 12px;
+      border-top: 1px solid var(--glass-border);
+    }
+    body.dark .kp-related-label { color: var(--mutd); border-top-color: var(--glass-border-dk); }
+    .kp-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .kp-pill {
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--txt);
+      background: rgba(0,0,0,0.06);
+      border: none;
+      border-radius: 999px;
+      padding: 6px 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: background .15s, color .15s;
+    }
+    .kp-pill:hover { background: var(--a); color: #fff; }
+    body.dark .kp-pill { color: var(--txtd); background: rgba(255,255,255,0.08); }
+    body.dark .kp-pill:hover { background: var(--a); color: #fff; }
+
+    /* Shimmer skeleton shown while the panel loads */
+    .kp-skel-img, .kp-skel-line {
+      background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.11) 37%, rgba(0,0,0,0.06) 63%);
+      background-size: 400% 100%;
+      animation: kpShimmer 1.4s ease infinite;
+      border-radius: 8px;
+    }
+    body.dark .kp-skel-img, body.dark .kp-skel-line {
+      background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.13) 37%, rgba(255,255,255,0.06) 63%);
+      background-size: 400% 100%;
+    }
+    .kp-skel-img { width: 100%; height: 170px; border-radius: 12px; margin-bottom: 12px; }
+    .kp-skel-line { height: 13px; margin-bottom: 9px; width: 100%; }
+    @keyframes kpShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+    /* Structured facts table — Wikidata-sourced "Born / Founded / Headquarters"
+       style rows, the part that actually makes this a knowledge panel rather
+       than a Wikipedia excerpt. */
+    .kp-facts {
+      margin: 4px 0 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--glass-border);
+    }
+    body.dark .kp-facts { border-top-color: var(--glass-border-dk); }
+    .kp-fact-row {
+      display: flex;
+      gap: 10px;
+      padding: 5px 0;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .kp-fact-label {
+      flex: 0 0 38%;
+      color: var(--mut);
+      font-weight: 600;
+    }
+    body.dark .kp-fact-label { color: var(--mutd); }
+    .kp-fact-value { flex: 1; color: var(--txt); }
+    body.dark .kp-fact-value { color: var(--txtd); }
+
+    /* Inline calculator card — shown instead of the bio panel when the
+       query itself looks like a math expression. */
+    .kp-calc {
+      text-align: center;
+      padding: 6px 2px 4px;
+    }
+    .kp-calc-expr {
+      font-size: 13px;
+      color: var(--mut);
+      margin-bottom: 6px;
+      word-break: break-word;
+    }
+    body.dark .kp-calc-expr { color: var(--mutd); }
+    .kp-calc-result {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--txt);
+      word-break: break-word;
+      line-height: 1.25;
+    }
+    body.dark .kp-calc-result { color: var(--txtd); }
+    .kp-calc-icon { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--a); margin-bottom: 10px; }
 
     .results-info {
       font-size: 13px;
@@ -882,6 +1060,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 1 0 5 5"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
         AI
       </div>
+      <button id="safe-search-toggle" class="safe-search-toggle" title="Toggle Safe Search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg>
+        <span id="safe-search-label">Safe Search: On</span>
+      </button>
     </div>
 
     <div class="results-layout">
@@ -943,6 +1125,10 @@
       suggestOpen: false,
       // prevent observer from firing during suggestion mirroring
       suppressObserver: false,
+      // currently only filters the Images tab (passed to the image-search
+      // edge function); GCSE's own web-results safe search is configured
+      // at the CSE control-panel level, not adjustable per-request here.
+      safeSearch: localStorage.getItem('360_safe_search') !== 'off',
     };
 
     /* ─────────────────────────────────
@@ -956,6 +1142,7 @@
     const aiPanel     = document.getElementById('ai-panel');
     const tabsEl      = document.getElementById('results-tabs');
     const knowledgePanel = document.getElementById('knowledge-panel');
+    let kpToken = 0; // increments per knowledge-panel request; guards against a slow, stale response overwriting a newer one
 
     /* ─────────────────────────────────
        INIT FROM URL
@@ -998,25 +1185,222 @@
        WAIT FOR GCSE THEN SEARCH
     ───────────────────────────────── */
     
-    async function loadKnowledgePanel(q) {
-      if (!q?.trim()) { knowledgePanel.classList.remove('active'); knowledgePanel.innerHTML=''; return; }
-      knowledgePanel.classList.add('active');
-      knowledgePanel.innerHTML = '<div class="kp-subtext">Loading knowledge panel…</div>';
+    /* ─────────────────────────────────
+       INLINE CALCULATOR
+       Detects math-expression queries ("2+2", "15% of 200", "sqrt(81)")
+       and evaluates them without ever passing raw, unwhitelisted input to
+       Function() — known function/constant words are stripped first, and
+       whatever's left must be only digits/operators/whitespace/punctuation.
+    ───────────────────────────────── */
+    function tryCalculate(q) {
+      const trimmed = q.trim();
+      if (!trimmed || trimmed.length > 100) return null;
+
+      const pctOf = trimmed.match(/^([\d.]+)\s*%\s*of\s*([\d.]+)$/i);
+      if (pctOf) {
+        const a = parseFloat(pctOf[1]), b = parseFloat(pctOf[2]);
+        if (isNaN(a) || isNaN(b)) return null;
+        return { expr: trimmed, result: (a / 100) * b };
+      }
+
+      if (!/\d/.test(trimmed)) return null;
+      const looksMathy = /[+\-*/^%]/.test(trimmed) || /\b(sqrt|sin|cos|tan|log|ln|abs|pow)\s*\(/i.test(trimmed);
+      if (!looksMathy) return null;
+
+      const stripped = trimmed.replace(/\b(sqrt|sin|cos|tan|log|ln|abs|pow|pi|e)\b/gi, '');
+      if (!/^[\d\s+\-*/^%.(),]*$/.test(stripped)) return null; // anything else → not safe, bail
+
+      const expr = trimmed
+        .replace(/\^/g, '**')
+        .replace(/\bsqrt\(/gi, 'Math.sqrt(')
+        .replace(/\bsin\(/gi, 'Math.sin(')
+        .replace(/\bcos\(/gi, 'Math.cos(')
+        .replace(/\btan\(/gi, 'Math.tan(')
+        .replace(/\blog\(/gi, 'Math.log10(')
+        .replace(/\bln\(/gi, 'Math.log(')
+        .replace(/\babs\(/gi, 'Math.abs(')
+        .replace(/\bpow\(/gi, 'Math.pow(')
+        .replace(/\bpi\b/gi, 'Math.PI')
+        .replace(/(?<![a-zA-Z])e(?![a-zA-Z])/gi, 'Math.E');
+
       try {
-        const [wikiRes, ddgRes] = await Promise.all([
-          fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`),
-          fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`)
+        const result = Function(`"use strict"; return (${expr});`)();
+        if (typeof result !== 'number' || !isFinite(result)) return null;
+        return { expr: trimmed, result };
+      } catch (e) { return null; }
+    }
+
+    function renderCalculator(calc) {
+      const formatted = Number.isInteger(calc.result)
+        ? calc.result.toLocaleString()
+        : parseFloat(calc.result.toFixed(8)).toLocaleString(undefined, { maximumFractionDigits: 8 });
+      knowledgePanel.innerHTML = `
+        <div class="kp-calc">
+          <div class="kp-calc-icon">Calculator</div>
+          <div class="kp-calc-expr">${escHtml(calc.expr)} =</div>
+          <div class="kp-calc-result">${escHtml(formatted)}</div>
+        </div>
+      `;
+      knowledgePanel.classList.add('active');
+    }
+
+    /* ─────────────────────────────────
+       WIKIDATA STRUCTURED FACTS
+       The piece that turns "a paragraph from Wikipedia" into an actual
+       knowledge panel — Born/Founded/Headquarters/Population style rows.
+       Keyless, CORS-enabled, same access pattern as the Wikipedia calls
+       already used above.
+    ───────────────────────────────── */
+    const WIKIDATA_PROPS = {
+      P569: 'Born', P570: 'Died', P19: 'Born in', P27: 'Citizenship', P106: 'Occupation',
+      P571: 'Founded', P112: 'Founded by', P159: 'Headquarters', P1128: 'Employees',
+      P2046: 'Area', P1082: 'Population', P36: 'Capital', P17: 'Country', P452: 'Industry',
+    };
+
+    function formatWikidataDate(timeStr, precision) {
+      const m = /^([+-])(\d+)-(\d{2})-(\d{2})/.exec(timeStr || '');
+      if (!m) return null;
+      const [, sign, y, mo, d] = m;
+      const year = sign === '-' ? `${parseInt(y)} BCE` : `${parseInt(y)}`;
+      if (precision <= 9) return year;
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const monthName = months[parseInt(mo) - 1] || '';
+      return precision === 10 ? `${monthName} ${year}` : `${monthName} ${parseInt(d)}, ${year}`;
+    }
+
+    async function fetchWikidataFacts(title, token) {
+      try {
+        const entRes = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&sites=enwiki&titles=${encodeURIComponent(title)}&props=claims&languages=en&format=json&origin=*`);
+        if (!entRes.ok || token !== kpToken) return [];
+        const entData = await entRes.json();
+        const entity = Object.values(entData.entities || {})[0];
+        if (!entity || !entity.claims || entity.id === undefined) return [];
+
+        const rawFacts = [];
+        for (const [pid, label] of Object.entries(WIKIDATA_PROPS)) {
+          const dv = entity.claims[pid]?.[0]?.mainsnak?.datavalue;
+          if (dv) rawFacts.push({ label, dv });
+          if (rawFacts.length >= 8) break; // cap — a panel, not a spreadsheet
+        }
+        if (!rawFacts.length) return [];
+
+        const qids = new Set();
+        rawFacts.forEach(f => { if (f.dv.type === 'wikibase-entityid') qids.add(f.dv.value.id); });
+
+        let labelMap = {};
+        if (qids.size) {
+          const labelRes = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${[...qids].join('|')}&props=labels&languages=en&format=json&origin=*`);
+          if (labelRes.ok && token === kpToken) {
+            const labelData = await labelRes.json();
+            Object.entries(labelData.entities || {}).forEach(([qid, ent]) => {
+              labelMap[qid] = ent.labels?.en?.value || qid;
+            });
+          }
+        }
+
+        const facts = [];
+        for (const f of rawFacts) {
+          let value = null;
+          if (f.dv.type === 'wikibase-entityid') value = labelMap[f.dv.value.id] || null;
+          else if (f.dv.type === 'time') value = formatWikidataDate(f.dv.value.time, f.dv.value.precision);
+          else if (f.dv.type === 'quantity') {
+            const amt = parseFloat(f.dv.value.amount);
+            value = isNaN(amt) ? null : amt.toLocaleString();
+          } else if (f.dv.type === 'string' || f.dv.type === 'monolingualtext') {
+            value = f.dv.value?.text || (typeof f.dv.value === 'string' ? f.dv.value : null);
+          }
+          if (value) facts.push({ label: f.label, value });
+        }
+        return facts;
+      } catch (e) { return []; }
+    }
+
+
+    async function loadKnowledgePanel(q) {
+      const myToken = ++kpToken; // guards against a slow earlier request clobbering a newer one
+      if (!q?.trim()) { knowledgePanel.classList.remove('active'); knowledgePanel.innerHTML = ''; return; }
+
+      // Math expressions get an instant calculator card — no need to hit
+      // Wikipedia/DuckDuckGo/Wikidata for "2+2".
+      const calc = tryCalculate(q);
+      if (calc) { renderCalculator(calc); return; }
+
+      knowledgePanel.classList.add('active');
+      knowledgePanel.innerHTML = `
+        <div class="kp-skel-img"></div>
+        <div class="kp-skel-line" style="width:70%"></div>
+        <div class="kp-skel-line" style="width:40%"></div>
+        <div class="kp-skel-line"></div>
+        <div class="kp-skel-line"></div>
+        <div class="kp-skel-line" style="width:55%"></div>
+      `;
+
+      try {
+        // Wikipedia's summary endpoint needs an EXACT page title — most real
+        // search queries (questions, multi-word phrases) aren't exact titles
+        // and would just 404. Searching first and feeding the best match's
+        // title into the summary endpoint covers vastly more queries.
+        const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*&srlimit=1`);
+        const searchData = searchRes.ok ? await searchRes.json() : {};
+        const bestTitle = searchData?.query?.search?.[0]?.title;
+
+        const [wikiRes, ddgRes, facts] = await Promise.all([
+          bestTitle
+            ? fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(bestTitle)}`)
+            : Promise.resolve(null),
+          fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`),
+          bestTitle ? fetchWikidataFacts(bestTitle, myToken) : Promise.resolve([]),
         ]);
-        const wiki = wikiRes.ok ? await wikiRes.json() : {};
-        const ddg = ddgRes.ok ? await ddgRes.json() : {};
-        const img = wiki.thumbnail?.source || ddg.Image || '';
-        const title = wiki.title || ddg.Heading || q;
-        const desc = wiki.extract || ddg.AbstractText || 'No summary available yet.';
+        if (myToken !== kpToken) return; // a newer search started while we were waiting
+
+        const wiki = (wikiRes && wikiRes.ok) ? await wikiRes.json() : {};
+        const ddg  = ddgRes.ok ? await ddgRes.json() : {};
+
+        const img    = wiki.thumbnail?.source || ddg.Image || '';
+        const title  = wiki.title || ddg.Heading || '';
+        const desc   = wiki.extract || ddg.AbstractText || '';
         const source = wiki.content_urls?.desktop?.page || ddg.AbstractURL || '';
-        const related = (ddg.RelatedTopics || []).slice(0,4).map((x)=>x.Text).filter(Boolean);
-        knowledgePanel.innerHTML = `${img ? `<img class="kp-image" src="${img}" alt="${title}">` : ''}<div class="kp-title">${title}</div><div class="kp-subtext">Relevant context from Wikipedia + DuckDuckGo</div><div class="kp-desc">${desc}</div>${source ? `<div class="kp-source"><a href="${source}" target="_blank" rel="noopener noreferrer">Open source page</a></div>` : ''}${related.length ? `<ul class="kp-facts">${related.map((f)=>`<li>• ${f}</li>`).join('')}</ul>` : ''}`;
+        const related = (ddg.RelatedTopics || [])
+          .map(x => x.Text || x.Topics?.[0]?.Text)
+          .filter(Boolean)
+          .slice(0, 5);
+
+        // Genuinely nothing to show — hide rather than render a panel with
+        // the raw query as a fake title and an empty body.
+        if (!title && !desc && !related.length && !facts.length) {
+          knowledgePanel.classList.remove('active');
+          knowledgePanel.innerHTML = '';
+          return;
+        }
+
+        knowledgePanel.innerHTML = `
+          ${img ? `<img class="kp-image" src="${escHtml(img)}" alt="${escHtml(title || q)}" loading="lazy">` : ''}
+          <div class="kp-title">${escHtml(title || q)}</div>
+          <div class="kp-subtext">From Wikipedia &amp; DuckDuckGo</div>
+          ${desc ? `<div class="kp-desc">${escHtml(desc)}</div>` : ''}
+          ${facts.length ? `
+            <div class="kp-facts">
+              ${facts.map(f => `
+                <div class="kp-fact-row">
+                  <div class="kp-fact-label">${escHtml(f.label)}</div>
+                  <div class="kp-fact-value">${escHtml(f.value)}</div>
+                </div>`).join('')}
+            </div>` : ''}
+          ${source ? `<a class="kp-source" href="${escHtml(source)}" target="_blank" rel="noopener noreferrer">Read more →</a>` : ''}
+          ${related.length ? `
+            <div class="kp-related-label">People also search for</div>
+            <div class="kp-pills">
+              ${related.map(f => `<button class="kp-pill" data-q="${escHtml(f)}">${escHtml(f.length > 38 ? f.slice(0, 36) + '…' : f)}</button>`).join('')}
+            </div>` : ''}
+        `;
+
+        knowledgePanel.querySelectorAll('.kp-pill').forEach(btn => {
+          btn.addEventListener('click', () => { hideSuggestions(); doSearch(btn.dataset.q); });
+        });
       } catch (e) {
-        knowledgePanel.innerHTML = '<div class="kp-subtext">Knowledge panel is unavailable right now.</div>';
+        if (myToken !== kpToken) return;
+        knowledgePanel.classList.remove('active');
+        knowledgePanel.innerHTML = '';
       }
     }
 
@@ -1364,6 +1748,74 @@
     }
 
     /* ─────────────────────────────────
+       RECENT SEARCHES — shown when the search bar is focused while empty.
+       Plain localStorage on a real shipped page (not a Claude artifact),
+       so this is safe to use.
+    ───────────────────────────────── */
+    const RECENT_KEY = '360_recent_searches';
+    function getRecentSearches() {
+      try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+    }
+    function addRecentSearch(q) {
+      if (!q?.trim()) return;
+      let list = getRecentSearches().filter(s => s.toLowerCase() !== q.toLowerCase());
+      list.unshift(q);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 8)));
+    }
+    function removeRecentSearch(q) {
+      const list = getRecentSearches().filter(s => s !== q);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+    }
+
+    function showRecentSearches() {
+      const recent = getRecentSearches();
+      if (!recent.length) { hideSuggestions(); return; }
+
+      state.suggestList = recent;
+      state.suggestIdx = -1;
+      state.suggestOpen = true;
+
+      const clockIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`;
+      const xIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+
+      dropdown.innerHTML = recent.map((s, i) => `
+        <div class="suggestion-item" data-idx="${i}" data-val="${escHtml(s)}">
+          <span class="suggestion-icon">${clockIcon}</span>
+          <span class="suggestion-text">${escHtml(s)}</span>
+          <button class="suggestion-remove" data-remove="${escHtml(s)}" title="Remove" aria-label="Remove from recent searches">${xIcon}</button>
+        </div>
+      `).join('') + `<div class="suggestion-footer" id="clear-recent-btn">Clear recent searches</div>`;
+
+      dropdown.classList.add('visible');
+
+      dropdown.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('mousedown', e => {
+          if (e.target.closest('.suggestion-remove')) return; // handled separately below
+          e.preventDefault();
+          const val = item.getAttribute('data-val');
+          input.value = val;
+          state.query = val;
+          hideSuggestions();
+          updateClearBtn();
+          doSearch(val);
+        });
+      });
+      dropdown.querySelectorAll('.suggestion-remove').forEach(btn => {
+        btn.addEventListener('mousedown', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          removeRecentSearch(btn.dataset.remove);
+          showRecentSearches();
+        });
+      });
+      document.getElementById('clear-recent-btn')?.addEventListener('mousedown', e => {
+        e.preventDefault();
+        localStorage.setItem(RECENT_KEY, '[]');
+        hideSuggestions();
+      });
+    }
+
+    /* ─────────────────────────────────
        KEYBOARD NAVIGATION
     ───────────────────────────────── */
     input.addEventListener('keydown', e => {
@@ -1405,8 +1857,8 @@
       state.query = val;
       updateClearBtn();
       if (!val.trim()) {
-        hideSuggestions();
         lastSuggestQuery = '';
+        if (inputFocused) showRecentSearches(); else hideSuggestions();
         return;
       }
       clearTimeout(suggestTimeout);
@@ -1415,8 +1867,10 @@
 
     input.addEventListener('focus', () => {
       inputFocused = true;
-      // Re-show suggestions if we have them and there's a query
-      if (input.value.trim() && state.suggestList.length) {
+      if (!input.value.trim()) {
+        showRecentSearches();
+      } else if (state.suggestList.length) {
+        // Re-show suggestions if we have them and there's a query
         dropdown.classList.add('visible');
         state.suggestOpen = true;
       }
@@ -1578,6 +2032,28 @@
         };
 
         try { recognizer.start(); } catch (err) { listening = false; }
+      });
+    })();
+
+    /* ─────────────────────────────────
+       SAFE SEARCH TOGGLE
+    ───────────────────────────────── */
+    (function setupSafeSearchToggle() {
+      const btn   = document.getElementById('safe-search-toggle');
+      const label = document.getElementById('safe-search-label');
+      function render() {
+        label.textContent = state.safeSearch ? 'Safe Search: On' : 'Safe Search: Off';
+        btn.classList.toggle('off', !state.safeSearch);
+      }
+      render();
+      btn.addEventListener('click', () => {
+        state.safeSearch = !state.safeSearch;
+        localStorage.setItem('360_safe_search', state.safeSearch ? 'on' : 'off');
+        render();
+        if (state.tab === 'images' && state.query) {
+          state.page = 1;
+          scrapeImageResults(document.getElementById('gcse-hidden-container'));
+        }
       });
     })();
 
@@ -1824,6 +2300,7 @@
       input.value = q;
       updateClearBtn();
       updateUrl(q, state.tab);
+      addRecentSearch(q);
 
       if (state.tab === 'ai') {
         showResultsArea(false);
