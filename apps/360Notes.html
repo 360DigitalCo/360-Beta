@@ -357,6 +357,126 @@
       border-color: transparent;
       color: #fff;
     }
+    #favoriteNoteBtn.active {
+      color: #f59e0b;
+      border-color: #f59e0b;
+    }
+    .notes-card-star {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--notes-muted);
+      line-height: 1;
+      padding: 2px;
+    }
+    .notes-card-star.active { color: #f59e0b; }
+    .notes-card-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(59,130,246,.12);
+      color: var(--notes-accent);
+    }
+
+    /* Presence avatars (who's viewing this note right now) */
+    .notes-presence {
+      display: flex;
+      align-items: center;
+      margin-left: 6px;
+    }
+    .notes-presence-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      border: 2px solid var(--notes-surface);
+      margin-left: -6px;
+    }
+
+    /* Share panel */
+    .notes-share-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,.55);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+      z-index: 90;
+    }
+    .notes-share-overlay.open { opacity: 1; pointer-events: all; }
+    .notes-share-panel {
+      width: 100%;
+      max-width: 380px;
+      background: var(--notes-doc-bg);
+      border-radius: 16px;
+      border: 1px solid var(--notes-border);
+      overflow: hidden;
+    }
+    .notes-share-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--notes-border);
+      background: var(--notes-surface);
+    }
+    .notes-share-body { padding: 14px; }
+    .notes-share-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    .notes-share-divider {
+      height: 1px;
+      background: var(--notes-border);
+      margin: 10px 0;
+    }
+    .notes-share-invite {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .notes-share-invite input {
+      flex: 1;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--notes-border);
+      background: var(--notes-surface);
+      color: var(--notes-text);
+      font-size: 13px;
+    }
+    .notes-share-list { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
+    .notes-share-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      background: var(--notes-surface);
+      border: 1px solid var(--notes-border);
+      border-radius: 8px;
+      padding: 5px 8px;
+    }
+    .notes-share-chip button {
+      border: none;
+      background: transparent;
+      color: var(--notes-muted);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .notes-share-chip button:hover { color: #ef4444; }
 
     .notes-modal-body {
       padding: 18px 40px 24px;
@@ -471,11 +591,17 @@
     }
   </style>
 </head>
-<body>
+<body class="dark">
   <div class="cursor-dot"></div>
   <div class="cursor-trail"></div>
   <div class="cursor-crosshair"></div>
   <div class="cursor-blob"></div>
+
+  <div class="auth-top-right">
+    <button id="signInBtn"  class="auth-btn">Sign In</button>
+    <button id="signUpBtn"  class="auth-btn">Sign Up</button>
+    <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
+  </div>
 
   <div class="notes-root">
     <header class="notes-topbar">
@@ -497,14 +623,9 @@
       </div>
 
       <div class="notes-topbar-right">
-    <button id="signInBtn"  class="auth-btn">Sign In</button>
-    <button id="signUpBtn"  class="auth-btn">Sign Up</button>
-    <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
-
         <button class="notes-btn-primary" id="newNoteBtn">
           <span>＋</span> New note
         </button>
-        <div class="notes-avatar" id="notesAvatar" title="Account">?</div>
       </div>
     </header>
 
@@ -522,6 +643,11 @@
         <div class="notes-nav-item" data-view="recent">
           <span class="icon">🕒</span>
           <span>Recently edited</span>
+        </div>
+
+        <div class="notes-nav-item" data-view="shared">
+          <span class="icon">👥</span>
+          <span>Shared with me</span>
         </div>
 
         <div class="notes-sidebar-section-label" style="margin-top:10px;">Other</div>
@@ -553,8 +679,11 @@
         <div class="notes-modal-toolbar-left">
           <button class="notes-pill-btn" id="closeModalBtn">← Back</button>
           <span style="font-size:12px;color:var(--notes-muted);" id="docStatusLabel">Editing note</span>
+          <div class="notes-presence" id="notesPresence"></div>
         </div>
         <div class="notes-modal-toolbar-right">
+          <button class="notes-pill-btn" id="favoriteNoteBtn" title="Favorite">☆</button>
+          <button class="notes-pill-btn" id="shareNoteBtn">👥 Share</button>
           <button class="notes-pill-btn" id="previewToggleBtn">👁 Preview</button>
           <button class="notes-pill-btn" id="deleteNoteBtn">🗑 Delete</button>
           <button class="notes-pill-btn primary" id="saveNoteBtn">💾 Save</button>
@@ -575,6 +704,33 @@
         <div id="htmlPreviewBox" class="notes-preview-box" style="display:none;"></div>
 
         <div class="notes-status" id="notesStatus">Not saved yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share panel -->
+  <div class="notes-share-overlay" id="notesShareOverlay">
+    <div class="notes-share-panel">
+      <div class="notes-share-header">
+        <div style="font-weight:600;">Share this note</div>
+        <button class="notes-pill-btn" id="closeShareBtn">✕</button>
+      </div>
+      <div class="notes-share-body">
+        <label class="notes-share-row">
+          <input type="checkbox" id="sharePublicToggle" />
+          <span>Anyone with the link can view</span>
+        </label>
+        <label class="notes-share-row">
+          <input type="checkbox" id="sharePublicEditToggle" />
+          <span>Anyone with the link can edit</span>
+        </label>
+        <div class="notes-share-divider"></div>
+        <div style="font-size:12px;color:var(--notes-muted);margin-bottom:6px;">Invite someone by email</div>
+        <div class="notes-share-invite">
+          <input id="shareEmailInput" type="email" placeholder="name@example.com" />
+          <button class="notes-pill-btn primary" id="shareInviteBtn">Add</button>
+        </div>
+        <div class="notes-share-list" id="notesShareList"></div>
       </div>
     </div>
   </div>
