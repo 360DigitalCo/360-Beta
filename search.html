@@ -554,6 +554,28 @@
     body.dark .kp-calc-result { color: var(--txtd); }
     .kp-calc-icon { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--a); margin-bottom: 10px; }
 
+    /* Dictionary instant answer */
+    .kp-dict-word {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--txt);
+      margin-bottom: 2px;
+    }
+    body.dark .kp-dict-word { color: var(--txtd); }
+    .kp-dict-phonetic { font-size: 13px; color: var(--a); margin-bottom: 12px; }
+    .kp-dict-pos {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--mut);
+      margin: 10px 0 4px;
+    }
+    body.dark .kp-dict-pos { color: var(--mutd); }
+    .kp-dict-defs { margin: 0 0 0 18px; padding: 0; }
+    .kp-dict-defs li { font-size: 13.5px; line-height: 1.55; color: var(--txt); margin-bottom: 4px; }
+    body.dark .kp-dict-defs li { color: var(--txtd); }
+
     .results-info {
       font-size: 13px;
       color: var(--mut);
@@ -1245,6 +1267,121 @@
     }
 
     /* ─────────────────────────────────
+       UNIT CONVERTER
+       "10 km to miles", "5kg in lbs", "100 f to c" — pure math, no API,
+       so it's instant and can never fail/timeout.
+    ───────────────────────────────── */
+    const UNIT_CATEGORIES = {
+      length: { mm:0.001, cm:0.01, m:1, km:1000, in:0.0254, ft:0.3048, yd:0.9144, mi:1609.344 },
+      weight: { mg:0.001, g:1, kg:1000, oz:28.3495, lb:453.592, ton:1000000, stone:6350.29 },
+      volume: { ml:0.001, l:1, gal:3.78541, qt:0.946353, pt:0.473176, cup:0.236588, floz:0.0295735 },
+      speed:  { mph:0.44704, kmh:0.277778, kph:0.277778, mps:1, knot:0.514444 },
+    };
+    const UNIT_ALIASES = {
+      meter:'m', meters:'m', metre:'m', metres:'m', millimeter:'mm', millimeters:'mm',
+      centimeter:'cm', centimeters:'cm', kilometer:'km', kilometers:'km', kilometre:'km', kilometres:'km',
+      mile:'mi', miles:'mi', foot:'ft', feet:'ft', inch:'in', inches:'in', yard:'yd', yards:'yd',
+      gram:'g', grams:'g', kilogram:'kg', kilograms:'kg', kilo:'kg', kilos:'kg', milligram:'mg', milligrams:'mg',
+      pound:'lb', pounds:'lb', lbs:'lb', ounce:'oz', ounces:'oz', tonne:'ton', tonnes:'ton', tons:'ton', stones:'stone',
+      liter:'l', liters:'l', litre:'l', litres:'l', milliliter:'ml', milliliters:'ml',
+      gallon:'gal', gallons:'gal', quart:'qt', quarts:'qt', pint:'pt', pints:'pt', cups:'cup',
+      'fl oz':'floz', 'fluid ounce':'floz', 'fluid ounces':'floz',
+      celsius:'c', '°c':'c', fahrenheit:'f', '°f':'f', kelvin:'k',
+      'km/h':'kmh', 'kph':'kph', 'mi/h':'mph', knots:'knot', 'm/s':'mps',
+    };
+    function normalizeUnit(raw) {
+      const u = raw.trim().toLowerCase();
+      return UNIT_ALIASES[u] || u;
+    }
+    function convertTemp(value, from, to) {
+      let c = from === 'c' ? value : from === 'f' ? (value - 32) * 5/9 : value - 273.15;
+      return to === 'c' ? c : to === 'f' ? c * 9/5 + 32 : c + 273.15;
+    }
+    const TEMP_LABEL = { c: '°C', f: '°F', k: 'K' };
+
+    function tryUnitConvert(q) {
+      const m = q.trim().match(/^([\d.]+)\s*([a-z°\/]+)\s+(?:to|in|as|->)\s+([a-z°\/]+)\??$/i);
+      if (!m) return null;
+      const value = parseFloat(m[1]);
+      if (isNaN(value)) return null;
+      const fromUnit = normalizeUnit(m[2]);
+      const toUnit   = normalizeUnit(m[3]);
+      if (fromUnit === toUnit) return null; // not a meaningful conversion
+
+      if (['c','f','k'].includes(fromUnit) && ['c','f','k'].includes(toUnit)) {
+        return {
+          expr: `${value}${TEMP_LABEL[fromUnit]} =`,
+          result: convertTemp(value, fromUnit, toUnit),
+          unit: TEMP_LABEL[toUnit],
+        };
+      }
+      for (const cat of Object.values(UNIT_CATEGORIES)) {
+        if (cat[fromUnit] != null && cat[toUnit] != null) {
+          return { expr: `${value} ${fromUnit} =`, result: (value * cat[fromUnit]) / cat[toUnit], unit: toUnit };
+        }
+      }
+      return null;
+    }
+
+    function renderUnitConvert(conv) {
+      const formatted = parseFloat(conv.result.toFixed(6)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+      knowledgePanel.innerHTML = `
+        <div class="kp-calc">
+          <div class="kp-calc-icon">Unit Converter</div>
+          <div class="kp-calc-expr">${escHtml(conv.expr)}</div>
+          <div class="kp-calc-result">${escHtml(formatted)} <span style="font-size:18px;font-weight:700;">${escHtml(conv.unit)}</span></div>
+        </div>
+      `;
+      knowledgePanel.classList.add('active');
+    }
+
+    /* ─────────────────────────────────
+       DICTIONARY LOOKUP
+       "define X" / "what does X mean" / "X meaning" — keyless, CORS-enabled
+       free dictionary API.
+    ───────────────────────────────── */
+    function parseDictionaryQuery(q) {
+      const trimmed = q.trim();
+      let m = /^define\s+([a-z\-']+)\??$/i.exec(trimmed)
+           || /^definition\s+of\s+([a-z\-']+)\??$/i.exec(trimmed)
+           || /^what\s+does\s+([a-z\-']+)\s+mean\??$/i.exec(trimmed)
+           || /^([a-z\-']+)\s+meaning\??$/i.exec(trimmed)
+           || /^meaning\s+of\s+([a-z\-']+)\??$/i.exec(trimmed);
+      return m ? m[1] : null;
+    }
+
+    async function tryDictionaryLookup(q, token) {
+      const word = parseDictionaryQuery(q);
+      if (!word) return null;
+      try {
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+        if (!res.ok || token !== kpToken) return null;
+        const data = await res.json();
+        const entry = Array.isArray(data) ? data[0] : null;
+        if (!entry) return null;
+        const phonetic = entry.phonetic || entry.phonetics?.find(p => p.text)?.text || '';
+        const meanings = (entry.meanings || []).slice(0, 3).map(m => ({
+          pos: m.partOfSpeech,
+          defs: (m.definitions || []).slice(0, 2).map(d => d.definition).filter(Boolean),
+        })).filter(m => m.defs.length);
+        if (!meanings.length) return null;
+        return { word: entry.word || word, phonetic, meanings };
+      } catch (e) { return null; }
+    }
+
+    function renderDictionary(dict) {
+      knowledgePanel.innerHTML = `
+        <div class="kp-dict-word">${escHtml(dict.word)}</div>
+        ${dict.phonetic ? `<div class="kp-dict-phonetic">${escHtml(dict.phonetic)}</div>` : ''}
+        ${dict.meanings.map(m => `
+          <div class="kp-dict-pos">${escHtml(m.pos)}</div>
+          <ol class="kp-dict-defs">${m.defs.map(d => `<li>${escHtml(d)}</li>`).join('')}</ol>
+        `).join('')}
+      `;
+      knowledgePanel.classList.add('active');
+    }
+
+    /* ─────────────────────────────────
        WIKIDATA STRUCTURED FACTS
        The piece that turns "a paragraph from Wikipedia" into an actual
        knowledge panel — Born/Founded/Headquarters/Population style rows.
@@ -1324,6 +1461,28 @@
       // Wikipedia/DuckDuckGo/Wikidata for "2+2".
       const calc = tryCalculate(q);
       if (calc) { renderCalculator(calc); return; }
+
+      // "10 km to miles" style queries — pure math, instant, no API needed.
+      const conv = tryUnitConvert(q);
+      if (conv) { renderUnitConvert(conv); return; }
+
+      // "define X" / "what does X mean" — try the dictionary before falling
+      // through to the Wikipedia/Wikidata bio-panel flow.
+      const dictWord = parseDictionaryQuery(q);
+      if (dictWord) {
+        knowledgePanel.classList.add('active');
+        knowledgePanel.innerHTML = `
+          <div class="kp-skel-line" style="width:50%;height:22px;"></div>
+          <div class="kp-skel-line" style="width:30%"></div>
+          <div class="kp-skel-line"></div>
+          <div class="kp-skel-line" style="width:80%"></div>
+        `;
+        const dict = await tryDictionaryLookup(q, myToken);
+        if (myToken !== kpToken) return;
+        if (dict) { renderDictionary(dict); return; }
+        // No dictionary entry found (not a real word, or API miss) — fall
+        // through to the normal knowledge-panel flow below as a backstop.
+      }
 
       knowledgePanel.classList.add('active');
       knowledgePanel.innerHTML = `
