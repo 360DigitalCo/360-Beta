@@ -184,6 +184,27 @@
     body.dark #custom-clear-btn:hover { background: rgba(255,255,255,0.20); color: var(--txtd); }
     #custom-clear-btn.visible { display: flex; }
 
+    #voice-search-btn {
+      flex-shrink: 0;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--mut);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      margin-right: 4px;
+      transition: background 0.18s, color 0.18s;
+    }
+    #voice-search-btn:hover { background: rgba(0,0,0,0.10); color: var(--txt); }
+    body.dark #voice-search-btn:hover { background: rgba(255,255,255,0.12); color: var(--txtd); }
+    #voice-search-btn.listening { color: #ef4444; animation: voicePulse 1.2s ease-in-out infinite; }
+    @keyframes voicePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); }
+      50%      { box-shadow: 0 0 0 7px rgba(239,68,68,0); }
+    }
+
     /* Search button — gradient pill */
     #custom-search-btn {
       flex-shrink: 0;
@@ -837,6 +858,9 @@
           <button id="custom-clear-btn" aria-label="Clear search" title="Clear">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
+          <button id="voice-search-btn" aria-label="Search by voice" title="Search by voice" style="display:none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+          </button>
           <button id="custom-search-btn">Search</button>
         </div>
         <!-- Live suggestions dropdown -->
@@ -949,6 +973,11 @@
         if (t === 'ai') {
           showResultsArea(false);
           runAiSearch(q);
+        } else if (t === 'images') {
+          showResultsArea(true);
+          loadKnowledgePanel(q);
+          state.page = 1;
+          scrapeImageResults(document.getElementById('gcse-hidden-container'));
         } else {
           showResultsArea(true);
           loadKnowledgePanel(q);
@@ -1165,61 +1194,48 @@
     }
 
     function scrapeImageResults(gcseContainer) {
-      // GCSE's widget only returns web results with thumbnails.
-      // For real image search (30-50 per page), use the Google Custom Search JSON API
-      // with searchType=image. cx matches your GCSE cx.
-      const CX     = 'e003eb0834b6b4be8';
-      const start  = ((state.page - 1) * 10) + 1; // API uses 1-based index, 10 per page
+      // Real per-page image results via our image-search edge function (keeps
+      // the Google API key server-side instead of exposed in page source).
+      // Google's Custom Search JSON API hard-caps at 100 total results
+      // (start must be 1-91), so with 30 results/page (3 calls of 10) we
+      // cap at 3 full pages — anything beyond that the API can't serve.
+      const PAGE_SIZE = 30;
+      const pageStart = ((state.page - 1) * PAGE_SIZE) + 1; // 1, 31, 61…
+      const starts = [0, 10, 20].map(off => pageStart + off);
 
       showLoading();
 
-      // Fetch up to 10 results per API call; to get more we make multiple calls
-      // Google CSE API max is 10 per request, so we fetch 3 pages in parallel (30 total)
-      const starts = [1, 11, 21].map(offset => start + offset - 1);
-
       Promise.allSettled(
         starts.map(s =>
-          fetch(`https://www.googleapis.com/customsearch/v1?key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY&cx=${CX}&searchType=image&q=${encodeURIComponent(state.query)}&start=${s}&num=10`)
-            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+          fetch(`https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/image-search?q=${encodeURIComponent(state.query)}&start=${s}&safe=${state.safeSearch === false ? 'off' : 'active'}`)
+            .then(r => r.json())
         )
       ).then(responses => {
         const seenSrcs = new Set();
         const imgs = [];
+        let totalResults = 0;
 
         responses.forEach(res => {
-          if (res.status !== 'fulfilled') return;
-          const data = res.value;
-          if (!data.items) return;
-          data.items.forEach(item => {
-            const src = item.link || '';
-            if (!src || seenSrcs.has(src)) return;
-            seenSrcs.add(src);
-            imgs.push({
-              src,
-              href:       item.image?.contextLink || item.displayLink || src,
-              alt:        item.title || 'Image',
-              displayUrl: item.displayLink || '',
-            });
+          if (res.status !== 'fulfilled' || !res.value || res.value.error) return;
+          if (!totalResults && res.value.totalResults) totalResults = res.value.totalResults;
+          (res.value.items || []).forEach(item => {
+            if (!item.src || seenSrcs.has(item.src)) return;
+            seenSrcs.add(item.src);
+            imgs.push(item);
           });
         });
 
-        // Get total count from first response
-        const firstOk = responses.find(r => r.status === 'fulfilled' && r.value?.searchInformation);
-        const totalResults = firstOk ? parseInt(firstOk.value.searchInformation.totalResults || '0') : 0;
-        // Google CSE API allows up to 100 results (pages 1-10 with 10 each)
-        const totalPages = Math.min(10, Math.ceil(totalResults / 30));
-        const countText  = totalResults ? `About ${totalResults.toLocaleString()} image results` : '';
-
         if (!imgs.length) {
-          // API key missing or quota exceeded — fall back to GCSE thumbnail scrape
+          // Key missing/invalid, quota exceeded, or zero real results —
+          // fall back to thumbnails already present in the GCSE web results.
           scrapeImageFallback(gcseContainer);
           return;
         }
 
-        renderImageResults(imgs, countText, state.page, Math.max(totalPages, 1));
-      }).catch(() => {
-        scrapeImageFallback(gcseContainer);
-      });
+        const totalPages = Math.min(3, Math.max(1, Math.ceil(totalResults / PAGE_SIZE)));
+        const countText  = totalResults ? `About ${totalResults.toLocaleString()} image results` : '';
+        renderImageResults(imgs, countText, state.page, totalPages);
+      }).catch(() => scrapeImageFallback(gcseContainer));
     }
 
     // Fallback: scrape whatever thumbnails GCSE put in web results
@@ -1258,55 +1274,9 @@
       return { countText, currentPage, totalPages };
     }
 
-    function scrapeImageResults(gcseContainer) {
-      // A standard web GCSE widget never renders .gsc-imageResult elements —
-      // those only appear in image-search-configured CSEs.
-      // The only images available are the thumbnails GCSE embeds inside
-      // each web result card. Collect every non-trivial <img> from results.
-      const seenSrcs = new Set();
-      const results  = [];
-
-      gcseContainer.querySelectorAll('.gsc-webResult.gsc-result').forEach(el => {
-        const titleEl = el.querySelector('.gs-title a');
-
-        // Get destination URL
-        let href = titleEl ? (titleEl.getAttribute('data-ctorig') || titleEl.href || '#') : '#';
-        if (href.includes('google.com/url')) {
-          try { href = new URL(href).searchParams.get('q') || href; } catch(e) {}
-        }
-        const altBase = titleEl ? titleEl.textContent.trim() : 'Image';
-        let displayUrl = '';
-        try { displayUrl = new URL(href).hostname.replace(/^www\./, ''); } catch(e) { displayUrl = href; }
-
-        // Collect all imgs inside this result — GCSE may put several thumbnails
-        el.querySelectorAll('img').forEach(imgEl => {
-          // Prefer data-src (lazy-loaded) over src
-          let src = imgEl.getAttribute('data-src') || imgEl.getAttribute('src') || '';
-          // Skip data URIs, blanks, favicons, and tiny tracker pixels
-          if (!src || src.startsWith('data:') || /blank|favicon|1x1|pixel|spacer/i.test(src)) return;
-          // Skip if already seen
-          if (seenSrcs.has(src)) return;
-          // Skip images with explicit tiny dimensions
-          const w = parseInt(imgEl.getAttribute('width') || '0');
-          const h = parseInt(imgEl.getAttribute('height') || '0');
-          if ((w > 0 && w < 40) || (h > 0 && h < 40)) return;
-          seenSrcs.add(src);
-
-          const alt = imgEl.alt || altBase;
-          results.push({ src, href, alt, displayUrl });
-        });
-      });
-
-      if (!results.length) {
-        const noResults = gcseContainer.querySelector('.gs-no-results-result, .gsc-no-results-result');
-        if (noResults) { renderNoResults(); return; }
-        // Still loading — don't show anything yet
-        return;
-      }
-
-      const { countText, currentPage, totalPages } = getGcsePaginationInfo(gcseContainer);
-      renderImageResults(results, countText, currentPage, totalPages);
-    }
+    /* The web-result-thumbnail-scraping fallback used when image-search
+       returns nothing (key missing/invalid/quota exceeded, or zero results) —
+       see scrapeImageFallback() above, which already handles this case. */
 
     /* ─────────────────────────────────
        LIVE SUGGESTIONS
@@ -1334,23 +1304,18 @@
         setTimeout(() => { state.suppressObserver = false; }, 300);
       }
 
-      // JSONP from Google Suggest
-      const old = document.getElementById('suggest-jsonp');
-      if (old) old.remove();
-
-      window.__suggestCallback = function(data) {
-        // Only show if input still focused and query still matches
-        if (!inputFocused) return;
-        if (data && data[1]) {
-          const suggs = data[1].slice(0, 7).map(s => Array.isArray(s) ? s[0] : s);
+      const reqToken = q;
+      fetch(`https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/autocomplete?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+          // Stale response guard — a slower earlier request shouldn't clobber
+          // a newer one if responses arrive out of order.
+          if (reqToken !== lastSuggestQuery) return;
+          if (!inputFocused) return;
+          const suggs = (data?.suggestions || []).slice(0, 8).map(s => s.text || s);
           showSuggestions(suggs, q);
-        }
-      };
-
-      const script = document.createElement('script');
-      script.id = 'suggest-jsonp';
-      script.src = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(q)}&callback=__suggestCallback`;
-      document.head.appendChild(script);
+        })
+        .catch(() => { /* suggestions are best-effort — fail silently */ });
     }
 
     function showSuggestions(items, query) {
@@ -1517,7 +1482,11 @@
 
       showResultsArea(true);
       if (state.query) {
-        waitForGcseAndSearch(state.query, t);
+        if (t === 'images') {
+          scrapeImageResults(document.getElementById('gcse-hidden-container'));
+        } else {
+          waitForGcseAndSearch(state.query, t);
+        }
       }
     });
 
@@ -1560,7 +1529,57 @@
     });
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closeLightbox();
+
+      // "/" focuses the search bar — but never while the person is already
+      // typing somewhere (would otherwise insert a literal "/" mid-thought).
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
+        const tag = document.activeElement?.tagName;
+        const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable;
+        if (!isTyping) {
+          e.preventDefault();
+          input.focus();
+          input.select();
+        }
+      }
     });
+
+    /* ─────────────────────────────────
+       VOICE SEARCH — Web Speech API.
+       Not supported in Firefox; button stays hidden there rather than
+       doing nothing when clicked.
+    ───────────────────────────────── */
+    (function setupVoiceSearch() {
+      const voiceBtn = document.getElementById('voice-search-btn');
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return; // stays display:none
+
+      voiceBtn.style.display = 'flex';
+      let recognizer = null;
+      let listening = false;
+
+      voiceBtn.addEventListener('click', () => {
+        if (listening) { recognizer?.stop(); return; }
+
+        recognizer = new SpeechRecognition();
+        recognizer.lang = navigator.language || 'en-US';
+        recognizer.interimResults = false;
+        recognizer.maxAlternatives = 1;
+
+        recognizer.onstart = () => { listening = true; voiceBtn.classList.add('listening'); };
+        recognizer.onend   = () => { listening = false; voiceBtn.classList.remove('listening'); };
+        recognizer.onerror = () => { listening = false; voiceBtn.classList.remove('listening'); };
+        recognizer.onresult = (e) => {
+          const transcript = e.results?.[0]?.[0]?.transcript;
+          if (!transcript) return;
+          input.value = transcript;
+          updateClearBtn();
+          hideSuggestions();
+          doSearch(transcript);
+        };
+
+        try { recognizer.start(); } catch (err) { listening = false; }
+      });
+    })();
 
     /* ─────────────────────────────────
        AI SEARCH
@@ -1814,7 +1833,11 @@
 
       showResultsArea(true);
       loadKnowledgePanel(q);
-      waitForGcseAndSearch(q, state.tab);
+      if (state.tab === 'images') {
+        scrapeImageResults(document.getElementById('gcse-hidden-container'));
+      } else {
+        waitForGcseAndSearch(q, state.tab);
+      }
     }
 
     /* ─────────────────────────────────
@@ -2038,6 +2061,13 @@
     function goToPage(targetPage) {
       if (targetPage < 1) return;
       if (targetPage === state.page) return;
+
+      if (state.tab === 'images') {
+        state.page = targetPage;
+        scrapeImageResults(document.getElementById('gcse-hidden-container'));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
 
       showLoading();
 
