@@ -657,11 +657,17 @@
     }
   </style>
 </head>
-<body>
+<body class="dark">
   <div class="cursor-dot"></div>
   <div class="cursor-trail"></div>
   <div class="cursor-crosshair"></div>
   <div class="cursor-blob"></div>
+
+  <div class="auth-top-right">
+    <button id="signInBtn"  class="auth-btn">Sign In</button>
+    <button id="signUpBtn"  class="auth-btn">Sign Up</button>
+    <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
+  </div>
 
   <div class="docs-root">
     <header class="docs-topbar">
@@ -683,14 +689,9 @@
       </div>
 
       <div class="docs-topbar-right">
-    <button id="signInBtn"  class="auth-btn">Sign In</button>
-    <button id="signUpBtn"  class="auth-btn">Sign Up</button>
-    <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
-
         <button class="docs-btn-primary" id="newDocBtn">
           <span>＋</span> New doc
         </button>
-        <div class="docs-avatar" id="docsAvatar" title="Account">?</div>
       </div>
     </header>
 
@@ -828,7 +829,6 @@
     let pendingPageUpdates = {}; // pageIndex -> html queued while locally focused there
     let myActivePage = null;
 
-    const docsAvatar = document.getElementById('docsAvatar');
     const docsGrid = document.getElementById('docsGrid');
     const docsCountLabel = document.getElementById('docsCountLabel');
     const docsToast = document.getElementById('docsToast');
@@ -846,35 +846,17 @@
     function showToast(msg, dur = 2600) {
       docsToast.textContent = msg;
       docsToast.classList.add('show');
-      setTimeout(() => docsToast.classList.remove('show'), dur);
+      clearTimeout(docsToast._t);
+      docsToast._t = setTimeout(() => docsToast.classList.remove('show'), dur);
     }
 
     async function initAuth() {
       const { data: { session } } = await sb.auth.getSession();
       currentUser = session?.user ?? null;
-      updateAvatar();
     }
-
-    function updateAvatar() {
-      if (currentUser) {
-        const initials = (currentUser.email || 'U')[0].toUpperCase();
-        docsAvatar.textContent = initials;
-        docsAvatar.title = currentUser.email;
-      } else {
-        docsAvatar.textContent = '?';
-        docsAvatar.title = 'Not signed in';
-      }
-    }
-
-    docsAvatar.addEventListener('click', () => {
-      const popup = document.getElementById('auth-popup');
-      if (popup) popup.classList.remove('hidden');
-      else showToast('Sign in via 360 account popup.');
-    });
 
     sb.auth.onAuthStateChange((_e, session) => {
       currentUser = session?.user ?? null;
-      updateAvatar();
       fetchDocs();
     });
 
