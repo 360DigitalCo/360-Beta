@@ -2,308 +2,793 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>360Draw</title>
+  <link rel="icon" type="image/png" href="/favicon-32x32.png" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#4f9cff" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/wide.css" />
+  <link rel="stylesheet" href="/assets/css/responsive.css" />
+  <link rel="stylesheet" href="/assets/css/cursor.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
+      margin: 0; padding: 0; height: 100%; width: 100%;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #05060a;
-      color: #f5f5f5;
-      overflow: hidden;
+      background: #05060a; color: #f5f5f5; overflow: hidden;
     }
+    .draw-shell { display:flex; flex-direction:column; height:100vh; width:100vw; }
 
-    .draw-shell {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      width: 100vw;
-    }
-
+    /* Top bar */
     .draw-topbar {
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      background: rgba(10, 12, 20, 0.9);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(18px);
+      height:48px; display:flex; align-items:center; justify-content:space-between;
+      padding:0 12px; background:rgba(10,12,20,.92);
+      border-bottom:1px solid rgba(255,255,255,.06); backdrop-filter:blur(18px);
+      gap:8px; flex-shrink:0;
+    }
+    .draw-topbar-left  { display:flex; align-items:center; gap:8px; }
+    .draw-topbar-right { display:flex; align-items:center; gap:6px; }
+    .draw-logo { width:22px; height:22px; border-radius:6px; background:radial-gradient(circle at 20% 20%,#4f9cff,#7b5cff); flex-shrink:0; }
+    .draw-pill {
+      padding:5px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.04);
+      color:#f5f5f5; font-size:12px; cursor:pointer; white-space:nowrap;
+    }
+    .draw-pill:hover { background:rgba(255,255,255,.1); }
+    .draw-pill.primary { background:linear-gradient(120deg,#4f9cff,#7b5cff); border-color:transparent; }
+
+    #draw-title-input {
+      background:transparent; border:none; outline:none; color:#f5f5f5;
+      font-size:13px; width:200px; border-bottom:1px solid transparent;
+    }
+    #draw-title-input:focus { border-bottom-color:rgba(79,156,255,.6); }
+
+    .draw-presence { display:flex; align-items:center; gap:-4px; }
+    .draw-presence-avatar {
+      width:24px; height:24px; border-radius:50%; display:flex;
+      align-items:center; justify-content:center; font-size:10px; font-weight:700;
+      color:#fff; border:2px solid #05060a; margin-left:-6px; flex-shrink:0;
     }
 
-    .draw-topbar-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    /* Main layout */
+    .draw-main { flex:1; display:flex; min-height:0; position:relative; }
 
-    .draw-logo {
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      background: radial-gradient(circle at 20% 20%, #4f9cff, #7b5cff);
-    }
-
-    .draw-title {
-      font-size: 14px;
-      opacity: 0.9;
-    }
-
-    .draw-topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      opacity: 0.8;
-    }
-
-    .draw-share-btn {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      background: rgba(255, 255, 255, 0.04);
-      color: #f5f5f5;
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    .draw-main {
-      flex: 1;
-      display: flex;
-      min-height: 0;
-    }
-
+    /* Left toolbar */
     .draw-toolbar {
-      width: 64px;
-      background: rgba(10, 12, 20, 0.95);
-      border-right: 1px solid rgba(255, 255, 255, 0.06);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 10px 0;
-      gap: 8px;
+      width:56px; background:rgba(10,12,20,.96); border-right:1px solid rgba(255,255,255,.06);
+      display:flex; flex-direction:column; align-items:center; padding:8px 0; gap:4px; flex-shrink:0;
     }
-
     .tool-btn {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      border: 1px solid transparent;
-      background: rgba(255, 255, 255, 0.02);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: #f5f5f5;
-      font-size: 18px;
+      width:38px; height:38px; border-radius:10px;
+      border:1px solid transparent; background:rgba(255,255,255,.02);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; color:#f5f5f5; font-size:17px; user-select:none;
+    }
+    .tool-btn.active { border-color:rgba(79,156,255,.9); background:rgba(79,156,255,.14); }
+    .tool-btn:hover:not(.active) { background:rgba(255,255,255,.06); }
+    .tool-divider { width:32px; height:1px; background:rgba(255,255,255,.08); margin:4px 0; }
+
+    .color-swatch {
+      width:24px; height:24px; border-radius:6px; border:2px solid rgba(255,255,255,.3);
+      cursor:pointer; flex-shrink:0;
+    }
+    #color-picker { opacity:0; width:0; height:0; position:absolute; }
+
+    .size-slider {
+      writing-mode:vertical-lr; direction:rtl;
+      width:6px; height:80px; margin:0 auto; cursor:pointer; accent-color:#4f9cff;
     }
 
-    .tool-btn.active {
-      border-color: rgba(79, 156, 255, 0.9);
-      background: rgba(79, 156, 255, 0.12);
+    /* Canvas area */
+    .draw-canvas-area {
+      flex:1; display:flex; flex-direction:column; background:radial-gradient(circle at top,#151827,#05060a);
+      min-width:0;
     }
-
-    .draw-center {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: radial-gradient(circle at top, #151827, #05060a);
-    }
-
     .draw-canvas-wrapper {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
+      flex:1; display:flex; align-items:center; justify-content:center; padding:12px; overflow:hidden;
     }
-
     #draw-canvas {
-      background: #11131c;
-      border-radius: 16px;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
-      cursor: crosshair;
+      background:#111318; border-radius:12px;
+      box-shadow:0 18px 40px rgba(0,0,0,.7); cursor:crosshair;
+      touch-action:none; max-width:100%; max-height:100%;
     }
-
     .draw-bottom-bar {
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      font-size: 11px;
-      background: rgba(10, 12, 20, 0.9);
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      height:34px; display:flex; align-items:center; justify-content:space-between; padding:0 12px;
+      font-size:11px; background:rgba(10,12,20,.9); border-top:1px solid rgba(255,255,255,.06);
+      opacity:.8; flex-shrink:0;
     }
 
+    /* Right panel */
     .draw-right {
-      width: 260px;
-      background: rgba(10, 12, 20, 0.96);
-      border-left: 1px solid rgba(255, 255, 255, 0.06);
-      display: flex;
-      flex-direction: column;
-      padding: 10px;
-      gap: 10px;
-      font-size: 12px;
+      width:220px; background:rgba(10,12,20,.97); border-left:1px solid rgba(255,255,255,.06);
+      display:flex; flex-direction:column; gap:8px; padding:10px; font-size:12px; overflow-y:auto; flex-shrink:0;
     }
-
     .draw-panel-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      opacity: 0.6;
-      margin-bottom: 4px;
+      font-size:10px; text-transform:uppercase; letter-spacing:.08em; opacity:.6; margin-bottom:4px;
     }
-
-    .draw-layers,
-    .draw-collab {
-      background: rgba(255, 255, 255, 0.02);
-      border-radius: 12px;
-      padding: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
+    .draw-panel-box {
+      background:rgba(255,255,255,.02); border-radius:10px; padding:10px;
+      border:1px solid rgba(255,255,255,.04);
     }
-
-    .layer-item {
-      padding: 4px 6px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.02);
-      margin-bottom: 4px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .canvas-list-item {
+      padding:5px 7px; border-radius:7px; background:rgba(255,255,255,.02);
+      cursor:pointer; margin-bottom:4px; font-size:12px;
+      display:flex; align-items:center; justify-content:space-between;
     }
-
+    .canvas-list-item.active { background:rgba(79,156,255,.12); border:1px solid rgba(79,156,255,.3); }
+    .canvas-list-item:hover:not(.active) { background:rgba(255,255,255,.06); }
+    .canvas-list-item-del { background:none; border:none; color:#f5f5f5; opacity:.3; cursor:pointer; font-size:11px; }
+    .canvas-list-item-del:hover { opacity:1; }
     .collab-user {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 6px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.04);
-      margin: 2px 0;
+      display:flex; align-items:center; gap:6px; padding:3px 6px;
+      border-radius:999px; background:rgba(255,255,255,.04); margin-bottom:4px; font-size:11px;
     }
+    .collab-dot { width:7px; height:7px; border-radius:50%; }
 
-    .collab-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #4f9cff;
+    /* Share overlay */
+    .draw-share-overlay {
+      position:fixed; inset:0; background:rgba(5,6,10,.7); backdrop-filter:blur(8px);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; pointer-events:none; transition:opacity .2s; z-index:100;
     }
+    .draw-share-overlay.open { opacity:1; pointer-events:all; }
+    .draw-share-panel {
+      width:360px; background:#0f1118; border:1px solid rgba(255,255,255,.1);
+      border-radius:16px; overflow:hidden; font-size:13px;
+    }
+    .draw-share-header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.06);
+      background:rgba(255,255,255,.03);
+    }
+    .draw-share-body { padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .draw-share-row { display:flex; align-items:center; gap:8px; cursor:pointer; }
+    .draw-share-invite { display:flex; gap:6px; }
+    .draw-share-invite input {
+      flex:1; padding:6px 10px; border-radius:8px;
+      border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04);
+      color:#f5f5f5; font-size:12px; outline:none;
+    }
+    .draw-share-list { display:flex; flex-direction:column; gap:5px; max-height:130px; overflow-y:auto; }
+    .draw-share-chip {
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:11px; padding:4px 8px; border-radius:7px;
+      border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03);
+    }
+    .draw-share-chip button { background:none; border:none; color:rgba(255,255,255,.4); cursor:pointer; }
+    .draw-share-chip button:hover { color:#ef4444; }
+    .draw-copy-link {
+      padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.15);
+      background:rgba(255,255,255,.05); color:#f5f5f5; font-size:12px; cursor:pointer; text-align:left;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .draw-copy-link:hover { background:rgba(255,255,255,.08); }
+
+    /* Gate (signed-out) */
+    .draw-gate {
+      position:fixed; inset:0; background:#05060a; display:none;
+      flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; padding:24px; z-index:200;
+    }
+    .draw-gate-icon { font-size:44px; }
+    .draw-gate-title { font-size:20px; font-weight:600; }
+    .draw-gate-sub { font-size:13px; opacity:.65; max-width:300px; }
+
+    /* Toast */
+    .draw-toast {
+      position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px);
+      background:rgba(15,17,28,.96); border:1px solid rgba(255,255,255,.12); color:#f5f5f5;
+      padding:7px 16px; border-radius:999px; font-size:12px;
+      opacity:0; pointer-events:none; transition:opacity .2s,transform .2s; z-index:999;
+    }
+    .draw-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   </style>
 </head>
-<body>
+<body class="dark">
+  <div class="auth-top-right">
+    <button id="signInBtn" class="auth-btn">Sign In</button>
+    <button id="signUpBtn" class="auth-btn">Sign Up</button>
+    <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
+  </div>
+
   <div class="draw-shell">
+    <!-- Top bar -->
     <div class="draw-topbar">
       <div class="draw-topbar-left">
         <div class="draw-logo"></div>
-        <div class="draw-title">Untitled canvas · 360Draw</div>
+        <input id="draw-title-input" value="Untitled canvas" maxlength="80" spellcheck="false" />
+        <span id="draw-save-status" style="font-size:11px;opacity:.6;white-space:nowrap;">Not saved</span>
       </div>
       <div class="draw-topbar-right">
-        <button class="draw-share-btn" onclick="window.location.href='/apps'">← Apps</button>
-        <span id="draw-presence">You</span>
-        <button class="draw-share-btn" id="draw-share-btn">Share</button>
+        <button class="draw-pill" onclick="window.location.href='/apps'">← Apps</button>
+        <div class="draw-presence" id="draw-presence"></div>
+        <button class="draw-pill" id="draw-undo-btn" title="Undo">↩</button>
+        <button class="draw-pill" id="draw-clear-btn">Clear</button>
+        <button class="draw-pill" id="draw-export-btn">↓ PNG</button>
+        <button class="draw-pill primary" id="draw-share-btn">👥 Share</button>
       </div>
     </div>
 
     <div class="draw-main">
+      <!-- Left toolbar -->
       <div class="draw-toolbar">
-        <button class="tool-btn active" data-tool="brush">✏️</button>
-        <button class="tool-btn" data-tool="eraser">🩹</button>
-        <button class="tool-btn" data-tool="line">／</button>
-        <button class="tool-btn" data-tool="rect">▢</button>
-        <button class="tool-btn" data-tool="circle">◯</button>
+        <button class="tool-btn active" data-tool="brush" title="Brush">✏️</button>
+        <button class="tool-btn" data-tool="eraser" title="Eraser">🩹</button>
+        <div class="tool-divider"></div>
+        <button class="tool-btn" data-tool="line"   title="Line">／</button>
+        <button class="tool-btn" data-tool="rect"   title="Rectangle">▢</button>
+        <button class="tool-btn" data-tool="ellipse" title="Ellipse">◯</button>
+        <div class="tool-divider"></div>
+        <div class="color-swatch" id="color-swatch" title="Pick colour" style="background:#ffffff;"></div>
+        <input type="color" id="color-picker" value="#ffffff" />
+        <div class="tool-divider"></div>
+        <input type="range" class="size-slider" id="size-slider" min="1" max="40" value="4" title="Brush size" />
       </div>
 
-      <div class="draw-center">
+      <!-- Canvas -->
+      <div class="draw-canvas-area">
         <div class="draw-canvas-wrapper">
           <canvas id="draw-canvas" width="1200" height="700"></canvas>
         </div>
         <div class="draw-bottom-bar">
           <span id="draw-status">Brush · 4px · #ffffff</span>
-          <span>Live collab coming soon</span>
+          <span id="draw-collab-status">●&nbsp;Synced</span>
         </div>
       </div>
 
+      <!-- Right panel -->
       <div class="draw-right">
-        <div class="draw-layers">
-          <div class="draw-panel-title">Layers</div>
-          <div class="layer-item"><span>Layer 1</span><span>👁</span></div>
-          <div class="layer-item"><span>Background</span><span>🔒</span></div>
+        <div class="draw-panel-box">
+          <div class="draw-panel-title">My canvases</div>
+          <div id="canvas-list"></div>
+          <div style="margin-top:6px;">
+            <button class="draw-pill" id="new-canvas-btn" style="width:100%;text-align:center;">+ New canvas</button>
+          </div>
         </div>
-        <div class="draw-collab">
-          <div class="draw-panel-title">Collaborators</div>
-          <div class="collab-user"><span class="collab-dot"></span><span>You</span></div>
+        <div class="draw-panel-box">
+          <div class="draw-panel-title">Online now</div>
+          <div id="collab-list"><div class="collab-user"><div class="collab-dot" style="background:#4f9cff;"></div><span>You</span></div></div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Share overlay -->
+  <div class="draw-share-overlay" id="draw-share-overlay">
+    <div class="draw-share-panel">
+      <div class="draw-share-header">
+        <span style="font-weight:600;">Share canvas</span>
+        <button class="draw-pill" id="close-share-btn">✕</button>
+      </div>
+      <div class="draw-share-body">
+        <label class="draw-share-row">
+          <input type="checkbox" id="share-public-toggle" />
+          <span>Anyone with the link can view</span>
+        </label>
+        <label class="draw-share-row">
+          <input type="checkbox" id="share-edit-toggle" />
+          <span>Anyone with the link can edit</span>
+        </label>
+        <button class="draw-copy-link" id="draw-copy-link-btn">🔗 Copy link</button>
+        <div style="height:1px;background:rgba(255,255,255,.08);"></div>
+        <div style="font-size:11px;opacity:.6;">Invite by email</div>
+        <div class="draw-share-invite">
+          <input id="share-email-input" type="email" placeholder="name@example.com" />
+          <button class="draw-pill primary" id="share-invite-btn">Add</button>
+        </div>
+        <div class="draw-share-list" id="draw-share-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gate -->
+  <div class="draw-gate" id="draw-gate">
+    <div class="draw-gate-icon">🎨</div>
+    <div class="draw-gate-title">Sign in to use 360Draw</div>
+    <div class="draw-gate-sub">Your canvases save to your account and sync across devices. Real-time collab included.</div>
+    <button class="draw-pill primary" id="draw-gate-btn">Sign In</button>
+  </div>
+
+  <div class="draw-toast" id="draw-toast"></div>
+
   <script>
-    const canvas = document.getElementById('draw-canvas');
-    const ctx = canvas.getContext('2d');
-    const tools = document.querySelectorAll('.tool-btn');
-    const statusEl = document.getElementById('draw-status');
+    const SB_URL  = 'https://wiswfpfsjiowtrdyqpxy.supabase.co';
+    const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpc3dmcGZzamlvd3RyZHlxcHh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzg4OTcsImV4cCI6MjA4MzkxNDg5N30.z_4FtM2c8UwgrRlafPYjolQuod4IoHQats95XHio1zM';
+    const sb = supabase.createClient(SB_URL, SB_ANON);
 
-    let drawing = false;
-    let tool = 'brush';
-    let lastX = 0;
-    let lastY = 0;
+    // ── State ────────────────────────────────────────────────────
+    let currentUser    = null;
+    let myCanvases     = [];
+    let currentCanvas  = null;
+    let drawChannel    = null;
+    let presChannel    = null;
+    let strokes        = [];   // [{tool,color,size,points:[{x,y}],x1,y1,x2,y2}]
+    let undoStack      = [];
+    let redoStack      = [];
+    let autoSaveTimer  = null;
+    let dirty          = false;
+
+    let tool  = 'brush';
     let color = '#ffffff';
-    let size = 4;
+    let size  = 4;
+    let drawing     = false;
+    let startX = 0, startY = 0;
+    let currentStroke = null;
+    let snapshotData  = null; // for shape-preview
 
-    tools.forEach(btn => {
-      btn.addEventListener('click', () => {
-        tools.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        tool = btn.dataset.tool;
-        statusEl.textContent = `${tool.charAt(0).toUpperCase() + tool.slice(1)} · ${size}px · ${color}`;
-      });
-    });
+    // ── DOM ──────────────────────────────────────────────────────
+    const canvas    = document.getElementById('draw-canvas');
+    const ctx       = canvas.getContext('2d');
+    const statusEl  = document.getElementById('draw-status');
+    const saveStatus= document.getElementById('draw-save-status');
+    const titleInput= document.getElementById('draw-title-input');
+    const canvasList= document.getElementById('canvas-list');
+    const collabList= document.getElementById('collab-list');
+    const presenceEl= document.getElementById('draw-presence');
+    const collabStatus = document.getElementById('draw-collab-status');
+    const shareOverlay = document.getElementById('draw-share-overlay');
+    const sharePublicToggle = document.getElementById('share-public-toggle');
+    const shareEditToggle   = document.getElementById('share-edit-toggle');
+    const shareEmailInput   = document.getElementById('share-email-input');
+    const drawShareList     = document.getElementById('draw-share-list');
+    const toastEl   = document.getElementById('draw-toast');
+    const gateEl    = document.getElementById('draw-gate');
+
+    // ── Utils ────────────────────────────────────────────────────
+    function showToast(msg, dur=2400) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastEl._t);
+      toastEl._t = setTimeout(() => toastEl.classList.remove('show'), dur);
+    }
+    function escHtml(s) {
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function colorForUser(key) {
+      const palette=['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+      let h=0; String(key).split('').forEach(c=>{h=(h*31+c.charCodeAt(0))>>>0;}); return palette[h%palette.length];
+    }
+    function showGate(show) {
+      gateEl.style.display = show ? 'flex' : 'none';
+    }
+    function markDirty() {
+      dirty = true;
+      saveStatus.textContent = 'Unsaved';
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => saveCurrentCanvas(), 2000);
+    }
+
+    // ── Canvas drawing ───────────────────────────────────────────
+    function redrawAll() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const s of strokes) drawStroke(s);
+    }
+
+    function drawStroke(s) {
+      ctx.save();
+      ctx.strokeStyle = s.tool === 'eraser' ? '#111318' : s.color;
+      ctx.lineWidth   = s.size;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+      if (s.tool === 'brush' || s.tool === 'eraser') {
+        ctx.beginPath();
+        if (s.points.length) {
+          ctx.moveTo(s.points[0].x, s.points[0].y);
+          for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y);
+        }
+        ctx.stroke();
+      } else if (s.tool === 'line') {
+        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+      } else if (s.tool === 'rect') {
+        ctx.beginPath(); ctx.strokeRect(s.x1, s.y1, s.x2-s.x1, s.y2-s.y1);
+      } else if (s.tool === 'ellipse') {
+        ctx.beginPath();
+        ctx.ellipse((s.x1+s.x2)/2,(s.y1+s.y2)/2,Math.abs(s.x2-s.x1)/2,Math.abs(s.y2-s.y1)/2,0,0,2*Math.PI);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left);
-      const y = (e.clientY - rect.top);
-      return { x, y };
+      const scaleX = canvas.width  / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const src = e.touches ? e.touches[0] : e;
+      return { x: (src.clientX - rect.left) * scaleX, y: (src.clientY - rect.top) * scaleY };
     }
 
-    canvas.addEventListener('mousedown', e => {
+    function onPointerDown(e) {
+      if (!currentCanvas && !currentUser) return;
+      e.preventDefault();
       drawing = true;
-      const pos = getPos(e);
-      lastX = pos.x;
-      lastY = pos.y;
-    });
-
-    canvas.addEventListener('mouseup', () => drawing = false);
-    canvas.addEventListener('mouseleave', () => drawing = false);
-
-    canvas.addEventListener('mousemove', e => {
-      if (!drawing) return;
-      const pos = getPos(e);
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = size;
-      ctx.lineCap = 'round';
-
-      if (tool === 'brush') {
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-      } else if (tool === 'eraser') {
-        ctx.clearRect(pos.x - size, pos.y - size, size * 2, size * 2);
+      const {x,y} = getPos(e);
+      startX = x; startY = y;
+      if (tool === 'brush' || tool === 'eraser') {
+        currentStroke = { tool, color, size, points:[{x,y}] };
+      } else {
+        currentStroke = { tool, color, size, x1:x, y1:y, x2:x, y2:y };
+        snapshotData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       }
+    }
 
-      lastX = pos.x;
-      lastY = pos.y;
+    function onPointerMove(e) {
+      if (!drawing || !currentStroke) return;
+      e.preventDefault();
+      const {x,y} = getPos(e);
+      if (tool === 'brush' || tool === 'eraser') {
+        currentStroke.points.push({x,y});
+        // draw the last segment directly for smooth performance
+        ctx.save();
+        ctx.strokeStyle = tool === 'eraser' ? '#111318' : color;
+        ctx.lineWidth = size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        const pts = currentStroke.points;
+        ctx.moveTo(pts[pts.length-2].x, pts[pts.length-2].y);
+        ctx.lineTo(x, y);
+        ctx.stroke(); ctx.restore();
+      } else {
+        currentStroke.x2 = x; currentStroke.y2 = y;
+        // restore snapshot and draw preview
+        ctx.putImageData(snapshotData, 0, 0);
+        drawStroke(currentStroke);
+      }
+    }
+
+    function onPointerUp(e) {
+      if (!drawing || !currentStroke) return;
+      drawing = false;
+      const s = currentStroke;
+      currentStroke = null;
+      snapshotData  = null;
+
+      // ignore tiny accidental taps (less than 2 points for freehand)
+      if ((s.tool === 'brush' || s.tool === 'eraser') && s.points.length < 2) return;
+
+      strokes.push(s);
+      undoStack.push(strokes.length - 1); // record index for undo
+      redoStack = [];
+
+      // broadcast to collaborators
+      if (drawChannel) {
+        drawChannel.send({ type:'broadcast', event:'stroke', payload:{ source: currentUser?.id, stroke:s } });
+      }
+      markDirty();
+    }
+
+    canvas.addEventListener('mousedown',  onPointerDown);
+    canvas.addEventListener('mousemove',  onPointerMove);
+    canvas.addEventListener('mouseup',    onPointerUp);
+    canvas.addEventListener('mouseleave', () => { if (drawing) onPointerUp(); });
+    canvas.addEventListener('touchstart', onPointerDown, {passive:false});
+    canvas.addEventListener('touchmove',  onPointerMove, {passive:false});
+    canvas.addEventListener('touchend',   onPointerUp);
+
+    // ── Tool controls ────────────────────────────────────────────
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        tool = btn.dataset.tool;
+        updateStatus();
+      });
     });
 
-    // Placeholder for future live collab
+    const colorPicker = document.getElementById('color-picker');
+    const colorSwatch = document.getElementById('color-swatch');
+    colorSwatch.addEventListener('click', () => colorPicker.click());
+    colorPicker.addEventListener('input', e => {
+      color = e.target.value;
+      colorSwatch.style.background = color;
+      updateStatus();
+    });
+
+    const sizeSlider = document.getElementById('size-slider');
+    sizeSlider.addEventListener('input', e => { size = +e.target.value; updateStatus(); });
+
+    function updateStatus() {
+      statusEl.textContent = `${tool[0].toUpperCase()+tool.slice(1)} · ${size}px · ${color}`;
+    }
+
+    // ── Undo / Clear / Export ────────────────────────────────────
+    document.getElementById('draw-undo-btn').addEventListener('click', () => {
+      if (!undoStack.length) return;
+      const idx = undoStack.pop();
+      const removed = strokes.splice(idx, 1)[0];
+      redoStack.push({idx, stroke: removed});
+      redrawAll();
+      markDirty();
+    });
+
+    document.getElementById('draw-clear-btn').addEventListener('click', () => {
+      if (!confirm('Clear the canvas? This will be saved.')) return;
+      strokes = []; undoStack = []; redoStack = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      markDirty();
+    });
+
+    document.getElementById('draw-export-btn').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = (currentCanvas?.title || 'canvas') + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+
+    // ── Canvas list ──────────────────────────────────────────────
+    function renderCanvasList() {
+      canvasList.innerHTML = myCanvases.map(c => `
+        <div class="canvas-list-item ${c.id === currentCanvas?.id ? 'active' : ''}" data-id="${c.id}">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escHtml(c.title)}</span>
+          <button class="canvas-list-item-del" data-del="${c.id}" title="Delete">✕</button>
+        </div>`).join('');
+      canvasList.querySelectorAll('.canvas-list-item').forEach(el => {
+        el.addEventListener('click', e => {
+          if (e.target.closest('[data-del]')) return;
+          const c = myCanvases.find(cc => cc.id === el.dataset.id);
+          if (c) loadCanvas(c);
+        });
+      });
+      canvasList.querySelectorAll('[data-del]').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); deleteCanvas(btn.dataset.del); });
+      });
+    }
+
+    // ── Data layer ───────────────────────────────────────────────
+    async function fetchMyCanvases() {
+      const {data, error} = await sb.from('canvases').select('*').eq('owner_id', currentUser.id).order('updated_at',{ascending:false});
+      if (error) { showToast('Could not load canvases'); return; }
+      myCanvases = data || [];
+      renderCanvasList();
+    }
+
+    async function createNewCanvas() {
+      const title = prompt('Canvas name:', 'Untitled canvas');
+      if (!title?.trim()) return;
+      const {data, error} = await sb.from('canvases')
+        .insert({ owner_id: currentUser.id, title: title.trim(), data: '[]' })
+        .select().single();
+      if (error) { showToast('Could not create canvas'); return; }
+      myCanvases.unshift(data);
+      renderCanvasList();
+      loadCanvas(data);
+    }
+
+    async function loadCanvas(c) {
+      // save current first
+      if (currentCanvas && dirty) await saveCurrentCanvas(true);
+      teardownRealtime();
+
+      currentCanvas = c;
+      titleInput.value = c.title || 'Untitled canvas';
+      try { strokes = JSON.parse(c.data || '[]'); } catch { strokes = []; }
+      undoStack = strokes.map((_,i) => i);
+      redoStack = [];
+      dirty = false;
+      saveStatus.textContent = 'Saved';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      redrawAll();
+      renderCanvasList();
+      setupRealtime(c.id);
+    }
+
+    async function saveCurrentCanvas(silent = false) {
+      if (!currentCanvas || !currentUser) return;
+      dirty = false;
+      saveStatus.textContent = 'Saving…';
+      const {error} = await sb.from('canvases').update({
+        title: titleInput.value.trim() || 'Untitled canvas',
+        data: JSON.stringify(strokes)
+      }).eq('id', currentCanvas.id);
+      if (error) { saveStatus.textContent = '⚠️ Save failed'; return; }
+      saveStatus.textContent = 'Saved';
+      currentCanvas.title = titleInput.value.trim() || 'Untitled canvas';
+      renderCanvasList();
+    }
+
+    async function deleteCanvas(id) {
+      const c = myCanvases.find(cc => cc.id === id);
+      if (!confirm(`Delete "${c?.title || 'canvas'}"?`)) return;
+      myCanvases = myCanvases.filter(cc => cc.id !== id);
+      if (currentCanvas?.id === id) {
+        teardownRealtime();
+        currentCanvas = null;
+        strokes = []; undoStack = []; redoStack = [];
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        titleInput.value = 'Untitled canvas';
+        saveStatus.textContent = '';
+      }
+      renderCanvasList();
+      await sb.from('canvases').delete().eq('id', id);
+    }
+
+    titleInput.addEventListener('input', markDirty);
+
+    document.getElementById('new-canvas-btn').addEventListener('click', createNewCanvas);
+
+    // ── Realtime collab ──────────────────────────────────────────
+    function setupRealtime(canvasId) {
+      const ch = 'draw-' + canvasId;
+
+      const pCh = sb.channel(ch + '-presence', { config:{presence:{key: currentUser?.id||'anon'}} });
+      pCh.on('presence', {event:'sync'}, () => renderPresence(pCh.presenceState()))
+         .subscribe(status => {
+           if (status === 'SUBSCRIBED') pCh.track({ user_id: currentUser?.id, email: currentUser?.email });
+           collabStatus.textContent = status === 'SUBSCRIBED' ? '●  Synced' : '○  Connecting…';
+         });
+      presChannel = pCh;
+
+      const dCh = sb.channel(ch);
+      dCh.on('broadcast', {event:'stroke'}, ({payload}) => {
+           if (!payload || payload.source === currentUser?.id) return;
+           strokes.push(payload.stroke);
+           drawStroke(payload.stroke);
+         })
+         .on('broadcast', {event:'clear'}, ({payload}) => {
+           if (!payload || payload.source === currentUser?.id) return;
+           strokes = []; ctx.clearRect(0,0,canvas.width,canvas.height);
+         })
+         .subscribe();
+      drawChannel = dCh;
+    }
+
+    function teardownRealtime() {
+      if (presChannel) { sb.removeChannel(presChannel); presChannel = null; }
+      if (drawChannel) { sb.removeChannel(drawChannel); drawChannel = null; }
+      presenceEl.innerHTML = '';
+      collabList.innerHTML = '<div class="collab-user"><div class="collab-dot" style="background:#4f9cff;"></div><span>You</span></div>';
+    }
+
+    function renderPresence(state) {
+      const users = [];
+      Object.values(state||{}).forEach(arr => arr.forEach(u => users.push(u)));
+      const others = users.filter(u => u.user_id !== currentUser?.id);
+
+      presenceEl.innerHTML = others.map(u => {
+        const c = colorForUser(u.user_id || u.email);
+        return `<div class="draw-presence-avatar" style="background:${c}" title="${escHtml(u.email||'user')}">${(u.email||'?')[0].toUpperCase()}</div>`;
+      }).join('');
+
+      collabList.innerHTML = [
+        `<div class="collab-user"><div class="collab-dot" style="background:#4f9cff;"></div><span>You</span></div>`,
+        ...others.map(u => {
+          const c = colorForUser(u.user_id || u.email);
+          return `<div class="collab-user"><div class="collab-dot" style="background:${c};"></div><span>${escHtml((u.email||'user').split('@')[0])}</span></div>`;
+        })
+      ].join('');
+    }
+
+    // ── Share panel ──────────────────────────────────────────────
     document.getElementById('draw-share-btn').addEventListener('click', () => {
-      alert('Live collab will use a shared link + WebSockets.');
+      if (!currentCanvas) { showToast('Open or create a canvas first.'); return; }
+      sharePublicToggle.checked = !!currentCanvas.is_public;
+      shareEditToggle.checked   = !!currentCanvas.can_edit_public;
+      shareEditToggle.disabled  = !currentCanvas.is_public;
+      renderShareList();
+      shareOverlay.classList.add('open');
     });
+    document.getElementById('close-share-btn').addEventListener('click', () => shareOverlay.classList.remove('open'));
+    shareOverlay.addEventListener('click', e => { if (e.target === shareOverlay) shareOverlay.classList.remove('open'); });
+
+    sharePublicToggle.addEventListener('change', async () => {
+      const pub  = sharePublicToggle.checked;
+      shareEditToggle.disabled = !pub;
+      if (!pub) shareEditToggle.checked = false;
+      await updateCanvasFlags(pub, shareEditToggle.checked);
+    });
+    shareEditToggle.addEventListener('change', async () => {
+      await updateCanvasFlags(sharePublicToggle.checked, shareEditToggle.checked);
+    });
+
+    document.getElementById('draw-copy-link-btn').addEventListener('click', () => {
+      if (!currentCanvas?.is_public) { showToast('Enable "anyone with link" first.'); return; }
+      const url = `${location.origin}/apps/360Draw.html?canvas=${currentCanvas.id}`;
+      navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copied!'));
+    });
+
+    document.getElementById('share-invite-btn').addEventListener('click', () => {
+      const email = shareEmailInput.value.trim();
+      if (email) addCollaborator(email);
+    });
+    shareEmailInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { const em = shareEmailInput.value.trim(); if (em) addCollaborator(em); }
+    });
+
+    function renderShareList() {
+      const emails = currentCanvas?.shared_with || [];
+      drawShareList.innerHTML = emails.map(em => `
+        <div class="draw-share-chip">
+          <span>${escHtml(em)}</span>
+          <button data-rem="${escHtml(em)}">✕</button>
+        </div>`).join('');
+      drawShareList.querySelectorAll('[data-rem]').forEach(btn => {
+        btn.addEventListener('click', () => removeCollaborator(btn.dataset.rem));
+      });
+    }
+
+    async function updateCanvasFlags(isPublic, canEdit) {
+      if (!currentCanvas) return;
+      const {data, error} = await sb.from('canvases').update({is_public:isPublic, can_edit_public:canEdit}).eq('id',currentCanvas.id).select().single();
+      if (error) { showToast('Could not update sharing'); return; }
+      currentCanvas = data;
+      const idx = myCanvases.findIndex(c => c.id === data.id);
+      if (idx > -1) myCanvases[idx] = data;
+    }
+
+    async function addCollaborator(email) {
+      if (!currentCanvas) return;
+      const list = new Set(currentCanvas.shared_with || []);
+      list.add(email.toLowerCase());
+      const {data, error} = await sb.from('canvases').update({shared_with:[...list]}).eq('id',currentCanvas.id).select().single();
+      if (error) { showToast('Could not add collaborator'); return; }
+      currentCanvas = data;
+      const idx = myCanvases.findIndex(c => c.id === data.id);
+      if (idx > -1) myCanvases[idx] = data;
+      shareEmailInput.value = '';
+      renderShareList();
+      showToast('✅ Collaborator added.');
+    }
+
+    async function removeCollaborator(email) {
+      if (!currentCanvas) return;
+      const list = (currentCanvas.shared_with||[]).filter(e => e !== email);
+      const {data, error} = await sb.from('canvases').update({shared_with:list}).eq('id',currentCanvas.id).select().single();
+      if (error) { showToast('Could not remove'); return; }
+      currentCanvas = data;
+      const idx = myCanvases.findIndex(c => c.id === data.id);
+      if (idx > -1) myCanvases[idx] = data;
+      renderShareList();
+    }
+
+    // ── Deep-link: ?canvas=id ────────────────────────────────────
+    async function tryDeepLink() {
+      const params = new URLSearchParams(location.search);
+      const id = params.get('canvas');
+      if (!id) return false;
+      const {data, error} = await sb.from('canvases').select('*').eq('id', id).single();
+      if (error || !data) return false;
+      // If it's ours it'll be in the list already; else just load it
+      if (!myCanvases.find(c => c.id === id)) myCanvases.push(data);
+      await loadCanvas(data);
+      return true;
+    }
+
+    // ── Boot / Auth ──────────────────────────────────────────────
+    async function boot() {
+      showGate(false);
+      await fetchMyCanvases();
+      const linked = await tryDeepLink();
+      if (!linked && myCanvases.length) await loadCanvas(myCanvases[0]);
+    }
+
+    async function init() {
+      const {data:{session}} = await sb.auth.getSession();
+      currentUser = session?.user ?? null;
+      if (currentUser) await boot();
+      else showGate(true);
+
+      sb.auth.onAuthStateChange(async (_e, session) => {
+        const wasIn = !!currentUser;
+        currentUser = session?.user ?? null;
+        if (currentUser && !wasIn) await boot();
+        else if (!currentUser && wasIn) {
+          teardownRealtime();
+          myCanvases = []; currentCanvas = null;
+          strokes = []; ctx.clearRect(0,0,canvas.width,canvas.height);
+          showGate(true);
+        }
+      });
+    }
+
+    document.getElementById('draw-gate-btn').addEventListener('click', () => {
+      location.href = '/signin?from=' + encodeURIComponent(location.pathname);
+    });
+
+    updateStatus();
+    init();
   </script>
+
+  <script src="/assets/js/main.js"></script>
+  <script src="/assets/js/wide.js"></script>
+  <script src="/assets/js/cookie.js"></script>
+  <script src="/assets/js/cursor.js"></script>
 </body>
 </html>
