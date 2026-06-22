@@ -744,20 +744,506 @@
   <script src="/assets/js/cursor.js"></script>
 
   <script>
-    // --- Supabase client (same project as 360Music) ---
-    const SUPABASE_URL  = 'https://wiswfpfsjiowtrdyqpxy.supabase.co';
-    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpc3dmcGZzamlvd3RyZHlxcHh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzg4OTcsImV4cCI6MjA4MzkxNDg5N30.z_4FtM2c8UwgrRlafPYjolQuod4IoHQats95XHio1zM';
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-
     let currentUser = null;
-    let allNotes = [];
-    let activeView = 'all';
+    let allNotes    = [];
+    let activeView  = 'all';
     let searchQuery = '';
     let currentNote = null;
-    let isHtmlMode = false;
-    let autoSaveTimer = null;
+    let isHtmlMode  = false;
+    let autoSaveTimer    = null;
+    let noteChannel      = null;
+    let presenceChannel  = null;
 
-    const notesAvatar = document.getElementById('notesAvatar');
+    // DOM refs
+    const notesGrid      = document.getElementById('notesGrid');
+    const notesCountLabel= document.getElementById('notesCountLabel');
+    const notesToast     = document.getElementById('notesToast');
+    const notesModalOverlay = document.getElementById('notesModalOverlay');
+    const noteTitleInput = document.getElementById('noteTitleInput');
+    const noteBodyInput  = document.getElementById('noteBodyInput');
+    const noteMetaLine   = document.getElementById('noteMetaLine');
+    const notesStatus    = document.getElementById('notesStatus');
+    const previewBox     = document.getElementById('htmlPreviewBox');
+    const previewToggleBtn = document.getElementById('previewToggleBtn');
+    const modeTextBtn    = document.getElementById('modeTextBtn');
+    const modeHtmlBtn    = document.getElementById('modeHtmlBtn');
+    const docStatusLabel = document.getElementById('docStatusLabel');
+    const notesPresence  = document.getElementById('notesPresence');
+    const notesShareOverlay = document.getElementById('notesShareOverlay');
+    const sharePublicToggle = document.getElementById('sharePublicToggle');
+    const sharePublicEditToggle = document.getElementById('sharePublicEditToggle');
+    const notesShareList = document.getElementById('notesShareList');
+    const shareEmailInput = document.getElementById('shareEmailInput');
+    const favoriteNoteBtn = document.getElementById('favoriteNoteBtn');
+
+    // ── Utils ────────────────────────────────────────────────────
+    function showToast(msg, dur = 2600) {
+      notesToast.textContent = msg;
+      notesToast.classList.add('show');
+      clearTimeout(notesToast._t);
+      notesToast._t = setTimeout(() => notesToast.classList.remove('show'), dur);
+    }
+
+    function escHtml(str) {
+      return String(str || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function timeAgo(ts) {
+      if (!ts) return '';
+      const diff = Date.now() - new Date(ts).getTime();
+      const m = Math.floor(diff / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return m + 'm ago';
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      const d = Math.floor(h / 24);
+      if (d < 30) return d + 'd ago';
+      const mo = Math.floor(d / 30);
+      if (mo < 12) return mo + 'mo ago';
+      return Math.floor(mo / 12) + 'y ago';
+    }
+
+    function colorForUser(key) {
+      const palette = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+      let hash = 0;
+      String(key).split('').forEach(c => { hash = (hash * 31 + c.charCodeAt(0)) >>> 0; });
+      return palette[hash % palette.length];
+    }
+
+    // ── Auth ─────────────────────────────────────────────────────
+    async function initAuth() {
+      const { data: { session } } = await sb.auth.getSession();
+      currentUser = session?.user ?? null;
+    }
+
+    sb.auth.onAuthStateChange((_e, session) => {
+      currentUser = session?.user ?? null;
+      fetchNotes();
+    });
+
+    // ── Data ─────────────────────────────────────────────────────
+    async function fetchNotes() {
+      if (!currentUser) { allNotes = []; renderNotes(); return; }
+      const { data, error } = await sb.from('notes').select('*').order('updated_at', { ascending: false });
+      if (error) { showToast('⚠️ Failed to load notes.'); return; }
+      allNotes = data || [];
+      renderNotes();
+    }
+
+    // ── Rendering ────────────────────────────────────────────────
+    function renderNotes() {
+      let notes = [...allNotes];
+
+      if (activeView === 'favorites') {
+        notes = notes.filter(n => n.is_favorite);
+      } else if (activeView === 'recent') {
+        notes.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+      } else if (activeView === 'shared') {
+        notes = notes.filter(n => n.user_id !== currentUser?.id);
+      }
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        notes = notes.filter(n =>
+          (n.title || '').toLowerCase().includes(q) ||
+          (n.body  || '').toLowerCase().includes(q)
+        );
+      }
+
+      const label = activeView === 'shared' ? 'shared notes' : `note${notes.length === 1 ? '' : 's'}`;
+      notesCountLabel.textContent = notes.length ? `${notes.length} ${label}` : 'No notes yet';
+
+      if (!notes.length) {
+        notesGrid.innerHTML = `
+          <div class="notes-empty">
+            <div style="font-size:40px;margin-bottom:8px;">📝</div>
+            <div>${currentUser ? 'No notes yet.' : 'Sign in to see your notes.'}</div>
+            ${currentUser && activeView === 'all' ? '<div style="margin-top:4px;">Click "New note" to start writing.</div>' : ''}
+          </div>`;
+        return;
+      }
+
+      notesGrid.innerHTML = notes.map(n => noteCard(n)).join('');
+      notesGrid.querySelectorAll('.notes-card').forEach(card => {
+        card.addEventListener('click', e => {
+          if (e.target.closest('.notes-card-star')) return;
+          const note = allNotes.find(nn => nn.id === card.dataset.id);
+          if (note) openNote(note);
+        });
+        card.querySelector('.notes-card-star')?.addEventListener('click', e => {
+          e.stopPropagation();
+          const note = allNotes.find(nn => nn.id === card.dataset.id);
+          if (note) toggleFavorite(note);
+        });
+      });
+    }
+
+    function noteCard(n) {
+      const snippet = (n.body || '').slice(0, 160);
+      const isOwn   = n.user_id === currentUser?.id;
+      return `
+        <div class="notes-card" data-id="${n.id}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+            <div class="notes-card-title">${escHtml(n.title || 'Untitled')}</div>
+            <button class="notes-card-star${n.is_favorite ? ' active' : ''}" title="${n.is_favorite ? 'Unfavorite' : 'Favorite'}">
+              ${n.is_favorite ? '★' : '☆'}
+            </button>
+          </div>
+          <div class="notes-card-snippet">${escHtml(snippet)}${n.body && n.body.length > 160 ? '…' : ''}</div>
+          <div class="notes-card-meta">
+            <span>${timeAgo(n.updated_at)}</span>
+            <div style="display:flex;gap:4px;align-items:center;">
+              ${n.is_html ? '<span class="notes-card-badge">HTML</span>' : ''}
+              ${!isOwn ? '<span class="notes-card-badge">Shared</span>' : ''}
+              ${n.is_public ? '<span class="notes-card-badge">Public</span>' : ''}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ── Modal ────────────────────────────────────────────────────
+    function openModal() {
+      notesModalOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      teardownNoteRealtime();
+      notesModalOverlay.classList.remove('open');
+      document.body.style.overflow = '';
+      currentNote  = null;
+      noteTitleInput.value = '';
+      noteBodyInput.value  = '';
+      previewBox.style.display = 'none';
+      previewBox.innerHTML = '';
+      isHtmlMode = false;
+      modeTextBtn.classList.add('active');
+      modeHtmlBtn.classList.remove('active');
+      notesStatus.textContent    = 'Not saved yet.';
+      noteMetaLine.textContent   = 'New note · not yet saved';
+      docStatusLabel.textContent = 'Editing note';
+      favoriteNoteBtn.textContent = '☆';
+      favoriteNoteBtn.classList.remove('active');
+    }
+
+    function openNote(note) {
+      currentNote = note;
+      noteTitleInput.value = note.title || '';
+      noteBodyInput.value  = note.body  || '';
+      isHtmlMode = !!note.is_html;
+      modeTextBtn.classList.toggle('active', !isHtmlMode);
+      modeHtmlBtn.classList.toggle('active',  isHtmlMode);
+      noteMetaLine.textContent   = `Last edited ${timeAgo(note.updated_at)} · ${note.is_html ? 'HTML' : 'Text'} mode`;
+      notesStatus.textContent    = 'Loaded.';
+      docStatusLabel.textContent = 'Editing note';
+      favoriteNoteBtn.textContent = note.is_favorite ? '★' : '☆';
+      favoriteNoteBtn.classList.toggle('active', !!note.is_favorite);
+      previewBox.style.display = 'none';
+      previewBox.innerHTML     = '';
+      openModal();
+      setupNoteRealtime(note.id);
+    }
+
+    function newNote() {
+      if (!currentUser) { showToast('Sign in to create notes.'); return; }
+      currentNote = null;
+      noteTitleInput.value = '';
+      noteBodyInput.value  = '';
+      isHtmlMode = false;
+      modeTextBtn.classList.add('active');
+      modeHtmlBtn.classList.remove('active');
+      noteMetaLine.textContent   = 'New note · not yet saved';
+      notesStatus.textContent    = 'Not saved yet.';
+      docStatusLabel.textContent = 'New note';
+      favoriteNoteBtn.textContent = '☆';
+      favoriteNoteBtn.classList.remove('active');
+      previewBox.style.display = 'none';
+      previewBox.innerHTML     = '';
+      openModal();
+    }
+
+    // ── Save / Delete / Favorite ─────────────────────────────────
+    async function saveNote(manual = false) {
+      if (!currentUser) { showToast('Sign in to save notes.'); return; }
+
+      const title  = noteTitleInput.value.trim() || 'Untitled';
+      const body   = noteBodyInput.value;
+      const is_html = isHtmlMode;
+
+      notesStatus.textContent = manual ? 'Saving…' : 'Auto-saving…';
+
+      if (!currentNote) {
+        const { data, error } = await sb.from('notes')
+          .insert({ user_id: currentUser.id, title, body, is_html })
+          .select('*').single();
+        if (error) { notesStatus.textContent = '⚠️ Failed to save.'; return; }
+        currentNote = data;
+        allNotes.unshift(data);
+        noteMetaLine.textContent = `Last edited just now · ${is_html ? 'HTML' : 'Text'} mode`;
+        notesStatus.textContent  = manual ? 'Saved.' : 'Auto-saved.';
+        renderNotes();
+        setupNoteRealtime(data.id);
+        return;
+      }
+
+      const { data, error } = await sb.from('notes')
+        .update({ title, body, is_html, updated_at: new Date().toISOString() })
+        .eq('id', currentNote.id).select('*').single();
+      if (error) { notesStatus.textContent = '⚠️ Failed to save.'; return; }
+
+      currentNote = data;
+      const idx = allNotes.findIndex(n => n.id === data.id);
+      if (idx > -1) allNotes[idx] = data;
+      noteMetaLine.textContent = `Last edited just now · ${is_html ? 'HTML' : 'Text'} mode`;
+      notesStatus.textContent  = manual ? 'Saved.' : 'Auto-saved.';
+      renderNotes();
+
+      // broadcast body change to other collaborators
+      if (noteChannel) {
+        noteChannel.send({
+          type: 'broadcast', event: 'body-change',
+          payload: { source: currentUser.id, title, body, is_html }
+        });
+      }
+    }
+
+    async function deleteNote() {
+      if (!currentNote) { closeModal(); return; }
+      if (!confirm('Delete this note? This can\'t be undone.')) return;
+      const id = currentNote.id;
+      const { error } = await sb.from('notes').delete().eq('id', id);
+      if (error) { showToast('⚠️ Failed to delete note.'); return; }
+      allNotes = allNotes.filter(n => n.id !== id);
+      showToast('🗑 Note deleted.');
+      closeModal();
+      renderNotes();
+    }
+
+    async function toggleFavorite(note) {
+      const next = !note.is_favorite;
+      note.is_favorite = next;
+      renderNotes();
+      if (currentNote?.id === note.id) {
+        favoriteNoteBtn.textContent = next ? '★' : '☆';
+        favoriteNoteBtn.classList.toggle('active', next);
+      }
+      const { error } = await sb.from('notes').update({ is_favorite: next }).eq('id', note.id);
+      if (error) { note.is_favorite = !next; renderNotes(); }
+    }
+
+    // ── Realtime collab ──────────────────────────────────────────
+    function setupNoteRealtime(noteId) {
+      teardownNoteRealtime();
+      const ch = 'note-' + noteId;
+
+      const pCh = sb.channel(ch + '-presence', {
+        config: { presence: { key: currentUser?.id || 'anon' } }
+      });
+      pCh.on('presence', { event: 'sync' }, () => renderPresence(pCh.presenceState()))
+         .subscribe(status => {
+           if (status === 'SUBSCRIBED') {
+             pCh.track({ user_id: currentUser?.id, email: currentUser?.email });
+           }
+         });
+      presenceChannel = pCh;
+
+      const nCh = sb.channel(ch);
+      nCh.on('broadcast', { event: 'body-change' }, ({ payload }) => {
+           if (!payload || payload.source === currentUser?.id) return;
+           if (document.activeElement !== noteBodyInput) {
+             noteBodyInput.value = payload.body ?? noteBodyInput.value;
+           }
+           if (document.activeElement !== noteTitleInput) {
+             noteTitleInput.value = payload.title ?? noteTitleInput.value;
+           }
+           docStatusLabel.textContent = '✏️ Someone else is editing';
+         })
+         .subscribe();
+      noteChannel = nCh;
+    }
+
+    function teardownNoteRealtime() {
+      if (presenceChannel) { sb.removeChannel(presenceChannel); presenceChannel = null; }
+      if (noteChannel)     { sb.removeChannel(noteChannel);     noteChannel     = null; }
+      notesPresence.innerHTML = '';
+    }
+
+    function renderPresence(state) {
+      const users = [];
+      Object.values(state || {}).forEach(arr => arr.forEach(u => users.push(u)));
+      const others = users.filter(u => u.user_id !== currentUser?.id);
+      notesPresence.innerHTML = others.map(u => {
+        const email = u.email || 'user';
+        const color = colorForUser(u.user_id || email);
+        return `<div class="notes-presence-avatar" style="background:${color}" title="${escHtml(email)} is here">${email[0].toUpperCase()}</div>`;
+      }).join('');
+    }
+
+    // ── Share panel ──────────────────────────────────────────────
+    function openSharePanel() {
+      if (!currentNote) { showToast('Save the note first.'); return; }
+      sharePublicToggle.checked     = !!currentNote.is_public;
+      sharePublicEditToggle.checked = !!currentNote.can_edit_public;
+      sharePublicEditToggle.disabled = !currentNote.is_public;
+      renderShareList();
+      notesShareOverlay.classList.add('open');
+    }
+
+    function renderShareList() {
+      const emails = currentNote?.shared_with || [];
+      notesShareList.innerHTML = emails.map(email => `
+        <div class="notes-share-chip">
+          <span>${escHtml(email)}</span>
+          <button data-remove="${escHtml(email)}">✕</button>
+        </div>`).join('');
+      notesShareList.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => removeCollaborator(btn.dataset.remove));
+      });
+    }
+
+    async function updatePublicFlags(isPublic, canEdit) {
+      if (!currentNote) return;
+      const { data, error } = await sb.from('notes')
+        .update({ is_public: isPublic, can_edit_public: canEdit })
+        .eq('id', currentNote.id).select('*').single();
+      if (error) { showToast('⚠️ Could not update sharing.'); return; }
+      currentNote = data;
+      const idx = allNotes.findIndex(n => n.id === data.id);
+      if (idx > -1) allNotes[idx] = data;
+    }
+
+    async function addCollaborator(email) {
+      if (!currentNote || !email) return;
+      const list = new Set(currentNote.shared_with || []);
+      list.add(email.toLowerCase());
+      const { data, error } = await sb.from('notes')
+        .update({ shared_with: [...list] })
+        .eq('id', currentNote.id).select('*').single();
+      if (error) { showToast('⚠️ Failed to add collaborator.'); return; }
+      currentNote = data;
+      const idx = allNotes.findIndex(n => n.id === data.id);
+      if (idx > -1) allNotes[idx] = data;
+      shareEmailInput.value = '';
+      renderShareList();
+      showToast('✅ Collaborator added.');
+    }
+
+    async function removeCollaborator(email) {
+      if (!currentNote) return;
+      const list = (currentNote.shared_with || []).filter(e => e !== email);
+      const { data, error } = await sb.from('notes')
+        .update({ shared_with: list })
+        .eq('id', currentNote.id).select('*').single();
+      if (error) { showToast('⚠️ Failed to remove collaborator.'); return; }
+      currentNote = data;
+      const idx = allNotes.findIndex(n => n.id === data.id);
+      if (idx > -1) allNotes[idx] = data;
+      renderShareList();
+    }
+
+    // ── Preview ──────────────────────────────────────────────────
+    function updatePreview() {
+      if (!isHtmlMode) { previewBox.style.display = 'none'; previewBox.innerHTML = ''; return; }
+      previewBox.style.display = 'block';
+      previewBox.innerHTML = noteBodyInput.value;
+    }
+
+    function scheduleAutoSave() {
+      if (!currentUser) return;
+      notesStatus.textContent = 'Changes not saved.';
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => saveNote(false), 1200);
+    }
+
+    // ── Events ───────────────────────────────────────────────────
+    document.getElementById('newNoteBtn').addEventListener('click', newNote);
+    document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+    document.getElementById('deleteNoteBtn').addEventListener('click', deleteNote);
+    document.getElementById('saveNoteBtn').addEventListener('click', () => saveNote(true));
+
+    favoriteNoteBtn.addEventListener('click', () => {
+      if (currentNote) toggleFavorite(currentNote);
+    });
+
+    document.getElementById('shareNoteBtn').addEventListener('click', openSharePanel);
+    document.getElementById('closeShareBtn').addEventListener('click', () => notesShareOverlay.classList.remove('open'));
+    notesShareOverlay.addEventListener('click', e => { if (e.target === notesShareOverlay) notesShareOverlay.classList.remove('open'); });
+
+    sharePublicToggle.addEventListener('change', () => {
+      const pub = sharePublicToggle.checked;
+      sharePublicEditToggle.disabled = !pub;
+      if (!pub) sharePublicEditToggle.checked = false;
+      updatePublicFlags(pub, sharePublicEditToggle.checked);
+    });
+    sharePublicEditToggle.addEventListener('change', () => {
+      updatePublicFlags(sharePublicToggle.checked, sharePublicEditToggle.checked);
+    });
+
+    document.getElementById('shareInviteBtn').addEventListener('click', () => {
+      const email = shareEmailInput.value.trim();
+      if (email) addCollaborator(email);
+    });
+    shareEmailInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { const email = shareEmailInput.value.trim(); if (email) addCollaborator(email); }
+    });
+
+    previewToggleBtn.addEventListener('click', () => {
+      if (!isHtmlMode) { showToast('Switch to HTML mode to preview.'); return; }
+      previewBox.style.display === 'none' ? updatePreview() : (previewBox.style.display = 'none');
+    });
+
+    modeTextBtn.addEventListener('click', () => {
+      isHtmlMode = false;
+      modeTextBtn.classList.add('active');
+      modeHtmlBtn.classList.remove('active');
+      previewBox.style.display = 'none';
+      previewBox.innerHTML = '';
+    });
+    modeHtmlBtn.addEventListener('click', () => {
+      isHtmlMode = true;
+      modeTextBtn.classList.remove('active');
+      modeHtmlBtn.classList.add('active');
+      updatePreview();
+    });
+
+    noteTitleInput.addEventListener('input', scheduleAutoSave);
+    noteBodyInput.addEventListener('input', () => {
+      scheduleAutoSave();
+      if (isHtmlMode && previewBox.style.display !== 'none') updatePreview();
+    });
+
+    // Sidebar view switching
+    document.querySelectorAll('.notes-nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.notes-nav-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        activeView = item.dataset.view;
+        renderNotes();
+      });
+    });
+
+    // Search
+    let searchTimer;
+    const searchInput = document.getElementById('notesSearch');
+    searchInput.addEventListener('input', e => {
+      clearTimeout(searchTimer);
+      searchQuery = e.target.value.trim();
+      searchTimer = setTimeout(renderNotes, 300);
+    });
+    document.getElementById('notesSearchBtn').addEventListener('click', () => {
+      searchQuery = searchInput.value.trim();
+      renderNotes();
+    });
+    searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { searchQuery = searchInput.value.trim(); renderNotes(); } });
+
+    // ── Init ─────────────────────────────────────────────────────
+    (async () => {
+      await initAuth();
+      await fetchNotes();
+    })();
+  </script>
     const notesGrid = document.getElementById('notesGrid');
     const notesCountLabel = document.getElementById('notesCountLabel');
     const notesToast = document.getElementById('notesToast');
@@ -1156,4 +1642,4 @@
     })();
   </script>
 </body>
-</html>
+      </html>
