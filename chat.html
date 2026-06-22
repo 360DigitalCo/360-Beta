@@ -1,1938 +1,305 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script>(function(w,i,g){w[g]=w[g]||[];if(typeof w[g].push=='function')w[g].push(i)})(window,'GTM-NZHQGS65','google_tags_first_party');</script>
-  <script>(function(w,d,s,l){w[l]=w[l]||[];(function(){w[l].push(arguments);})('set','developer_id.dYzg1YT',true);w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s);j.async=true;j.src='/uw4z/';f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer');</script>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-89NN1P6CEV"></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-89NN1P6CEV');</script>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>360 Chat</title>
-  <link rel="icon" type="image/png" href="/favicon-32x32.png" />
-  <link rel="manifest" href="/manifest.json" />
-  <!-- 360 base styles (variables, font, reset) -->
-  <link rel="stylesheet" href="/assets/css/main.css" />
-  <link rel="stylesheet" href="/assets/css/cursor.css" />
-  <!-- Discord-layout CSS -->
-  <link rel="stylesheet" href="/assets/css/chat.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    /* ── force body to fill screen, no scroll ── */
-    html, body { height: 100%; overflow: hidden; background: #1e1f22 !important; }
-    /* hide original 360 sidebar / nav chrome on chat page */
-    .sidebar, .sidebar-toggle, .overlay, .settings-panel,
-    .auth-top-right, .rooms-toggle { display: none !important; }
-  </style>
+<script>(function(w,i,g){w[g]=w[g]||[];if(typeof w[g].push=='function')w[g].push(i)})(window,'GTM-NZHQGS65','google_tags_first_party');</script>
+<script>(function(w,d,s,l){w[l]=w[l]||[];(function(){w[l].push(arguments);})('set','developer_id.dYzg1YT',true);w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s);j.async=true;j.src='/uw4z/';f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer');</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-89NN1P6CEV"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-89NN1P6CEV');</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>360 — Chat</title>
+<link rel="icon" type="image/png" href="../favicon-32x32.png"/>
+<link rel="manifest" href="../manifest.json"/>
+<link rel="stylesheet" href="/assets/css/main.css"/>
+<link rel="stylesheet" href="/assets/css/wide.css"/>
+<link rel="stylesheet" href="/assets/css/cursor.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="/assets/css/chat.css"/>
 </head>
-<body class="dark discord-chat">
-  <!-- 360 cursor -->
-  <div class="cursor-dot"></div>
-  <div class="cursor-trail"></div>
-  <div class="cursor-crosshair"></div>
-  <div class="cursor-blob"></div>
+<body class="dc-body">
+<div class="cursor-dot"></div><div class="cursor-trail"></div><div class="cursor-crosshair"></div><div class="cursor-blob"></div>
 
-  <!-- ══════════════════════════════════════════════════════════
-       APP SHELL
-  ══════════════════════════════════════════════════════════ -->
-  <div id="dc-app">
+<!-- Platform-wide nav (slides in over the Discord layout; toggle lives in the rail) -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header"><div class="logo-mark"></div><button id="settingsBtn">⚙</button></div>
+  <nav class="nav-list">
+    <div class="nav-item" data-href="../">Home</div>
+    <div class="nav-item" data-href="../ai">AI</div>
+    <div class="nav-item" data-href="../weather">Weather</div>
+    <div class="nav-item" data-href="../translator">Translator</div>
+    <div class="nav-item" data-href="../stocks">Stocks</div>
+    <div class="nav-item" data-href="../url-shortener">URL Shortener</div>
+    <div class="nav-item active" data-href="../chat">Chat</div>
+    <div class="nav-item" data-href="../news">News</div>
+    <div class="nav-item" data-href="../apps">Apps</div>
+    <div class="nav-item" data-href="../games">Games</div>
+  </nav>
+  <div class="sidebar-footer"><span id="sidebar-ver">Loading...</span></div>
+</aside>
+<div class="overlay" id="overlay"></div>
 
-    <!-- ── SERVER RAIL ── -->
-    <nav id="dc-server-rail" aria-label="Servers">
-      <!-- Home / DMs -->
-      <div class="dc-server-pill-wrap active" id="rail-home" title="Direct Messages">
-        <div class="dc-server-pill"></div>
-        <div class="dc-server-icon" id="rail-home-icon" style="background:var(--a);">
-          <svg width="28" height="20" viewBox="0 0 28 20" fill="white"><path d="M23.7 1.6A23.2 23.2 0 0 0 18 0a.09.09 0 0 0-.1.05 16 16 0 0 0-.7 1.44 21.4 21.4 0 0 0-6.4 0A14.9 14.9 0 0 0 10.1.05.1.1 0 0 0 10 0a23.1 23.1 0 0 0-5.7 1.6A.1.1 0 0 0 4.25 1.65C.62 7.05-.37 12.3.12 17.5a.11.11 0 0 0 .04.07 23.3 23.3 0 0 0 7.02 3.55.1.1 0 0 0 .11-.04c.54-.74 1.02-1.52 1.43-2.34a.1.1 0 0 0-.05-.14 15.3 15.3 0 0 1-2.19-1.04.1.1 0 0 1-.01-.17c.15-.11.29-.22.43-.34a.1.1 0 0 1 .1-.01c4.6 2.1 9.58 2.1 14.13 0a.1.1 0 0 1 .1.01c.14.12.28.23.43.34a.1.1 0 0 1-.01.17 14.4 14.4 0 0 1-2.19 1.04.1.1 0 0 0-.05.14c.42.82.9 1.6 1.43 2.34a.1.1 0 0 0 .11.04 23.2 23.2 0 0 0 7.03-3.55.1.1 0 0 0 .04-.07c.58-6.03-.97-11.26-4.12-15.9a.08.08 0 0 0-.04-.04zM9.35 14.33c-1.38 0-2.52-1.27-2.52-2.83 0-1.56 1.12-2.83 2.52-2.83 1.41 0 2.54 1.28 2.52 2.83 0 1.56-1.11 2.83-2.52 2.83zm9.32 0c-1.38 0-2.52-1.27-2.52-2.83 0-1.56 1.12-2.83 2.52-2.83 1.41 0 2.54 1.28 2.52 2.83 0 1.56-1.1 2.83-2.52 2.83z"/></svg>
-        </div>
-      </div>
-
-      <div class="dc-server-sep"></div>
-
-      <!-- Public / General -->
-      <div class="dc-server-pill-wrap" id="rail-public" title="360 General">
-        <div class="dc-server-pill"></div>
-        <div class="dc-server-icon" style="font-size:22px;">🌐</div>
-      </div>
-
-      <!-- Dynamic community icons -->
-      <div id="dc-rail-communities"></div>
-
-      <div class="dc-server-sep"></div>
-
-      <!-- Add server -->
-      <div class="dc-server-pill-wrap" id="rail-add" title="Add a Server">
-        <div class="dc-server-pill"></div>
-        <div class="dc-server-icon" id="rail-add-icon" style="color:#23a55a;font-size:28px;font-weight:300;">＋</div>
-      </div>
-
-      <!-- Explore -->
-      <div class="dc-server-pill-wrap" id="rail-explore" title="Explore Communities">
-        <div class="dc-server-pill"></div>
-        <div class="dc-server-icon" style="font-size:20px;">🧭</div>
-      </div>
-    </nav>
-
-    <!-- ── CHANNEL SIDEBAR ── -->
-    <div id="dc-channel-sidebar">
-      <!-- Server / DM header -->
-      <div id="dc-server-header">
-        <span id="dc-server-header-name">Direct Messages</span>
-        <span class="dc-sh-chevron">⌄</span>
-      </div>
-
-      <!-- Channel / DM list -->
-      <div id="dc-channel-list">
-        <!-- DM section (shown in DM mode) -->
-        <div id="dc-dm-section">
-          <button class="dc-add-dm-btn" id="dc-add-dm-btn" title="New DM" style="display:flex;align-items:center;gap:6px;width:calc(100% - 16px);margin:8px 8px 4px;padding:8px 12px;border-radius:4px;border:none;background:transparent;color:#949ba4;font-size:13px;cursor:pointer;font-family:inherit;">
-            <span style="font-size:16px;font-weight:700;">＋</span> New Direct Message
-          </button>
-          <div id="dc-dm-list-inner"></div>
-        </div>
-
-        <!-- Server channels section (shown in server mode) -->
-        <div id="dc-server-section" style="display:none;">
-          <div id="dc-channels-inner"></div>
-
-          <!-- Voice channels category -->
-          <div class="dc-category" id="dc-voice-cat">
-            <span class="dc-cat-arrow">▼</span>
-            VOICE CHANNELS
-            <span class="dc-cat-add" id="dc-add-voice-ch" title="Add voice channel">＋</span>
-          </div>
-          <div id="dc-voice-channels-inner"></div>
-
-          <!-- Server management (only for owners/admins) -->
-          <div id="dc-server-mgmt" style="display:none;margin-top:8px;border-top:1px solid #3a3c41;padding-top:8px;">
-            <div class="dc-category" style="cursor:default;">SERVER SETTINGS</div>
-            <div class="dc-channel-item" id="dc-mgmt-invite">
-              <span class="dc-channel-icon">🔗</span>
-              <span class="dc-channel-name">Invite People</span>
-            </div>
-            <div class="dc-channel-item" id="dc-mgmt-roles">
-              <span class="dc-channel-icon">🛡️</span>
-              <span class="dc-channel-name">Roles</span>
-            </div>
-            <div class="dc-channel-item" id="dc-mgmt-members">
-              <span class="dc-channel-icon">👥</span>
-              <span class="dc-channel-name">Members</span>
-            </div>
-            <div class="dc-channel-item" id="dc-mgmt-channels">
-              <span class="dc-channel-icon">📝</span>
-              <span class="dc-channel-name">Channels</span>
-            </div>
-            <div class="dc-channel-item" id="dc-mgmt-settings">
-              <span class="dc-channel-icon">⚙️</span>
-              <span class="dc-channel-name">Server Settings</span>
-            </div>
-            <div class="dc-channel-item" style="color:#ed4245;" id="dc-mgmt-delete">
-              <span class="dc-channel-icon">🗑️</span>
-              <span class="dc-channel-name">Delete Server</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- User panel -->
-      <div id="dc-user-panel">
-        <div class="dc-up-avatar-wrap">
-          <div class="dc-up-avatar" id="dc-up-avatar" title="Your profile">?</div>
-          <div class="dc-up-status" id="dc-up-status"></div>
-        </div>
-        <div class="dc-up-info">
-          <div class="dc-up-name" id="dc-up-name">Not signed in</div>
-          <div class="dc-up-tag"  id="dc-up-tag"></div>
-        </div>
-        <div class="dc-up-actions">
-          <button class="dc-up-btn" id="dc-up-mute"     title="Mute">🎙</button>
-          <button class="dc-up-btn" id="dc-up-deafen"   title="Deafen">🎧</button>
-          <button class="dc-up-btn" id="dc-up-settings" title="Settings">⚙</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── MAIN CONTENT ── -->
-    <main id="dc-main">
-      <!-- Top bar -->
-      <div id="dc-topbar">
-        <span class="dc-tb-icon" id="dc-tb-icon">#</span>
-        <span class="dc-tb-name" id="dc-tb-name">general</span>
-        <div class="dc-tb-sep"></div>
-        <span class="dc-tb-topic" id="dc-tb-topic">Welcome to 360 Chat</span>
-        <div class="dc-tb-actions">
-          <button class="dc-tb-btn" id="dc-tb-threads"  title="Threads">🧵</button>
-          <button class="dc-tb-btn" id="dc-tb-notif"    title="Notifications">🔔</button>
-          <button class="dc-tb-btn dc-active" id="dc-tb-members" title="Toggle Members">👥</button>
-          <div id="dc-topbar-search" title="Search">🔍 <span style="font-size:13px;">Search</span></div>
-          <button class="dc-tb-btn" id="dc-tb-inbox"    title="Inbox">📥</button>
-          <button class="dc-tb-btn" id="dc-tb-help"     title="Help">❓</button>
-        </div>
-      </div>
-
-      <!-- Voice panel (replaces messages when in a voice channel) -->
-      <div id="dc-voice-panel">
-        <div class="dc-voice-header">
-          <div class="dc-voice-icon">🔊</div>
-          <div class="dc-voice-name" id="dc-vc-name">Voice Channel</div>
-          <div class="dc-voice-sub"  id="dc-vc-sub">0 participants</div>
-        </div>
-        <div class="dc-voice-participants" id="dc-vc-participants"></div>
-        <div class="dc-voice-controls">
-          <button class="dc-vc-btn" id="dc-vc-cam"    title="Camera">📷</button>
-          <button class="dc-vc-btn" id="dc-vc-screen" title="Share screen">🖥</button>
-          <button class="dc-vc-btn" id="dc-vc-mic"    title="Mute mic">🎙</button>
-          <button class="dc-vc-btn danger" id="dc-vc-leave" title="Disconnect">📵</button>
-        </div>
-      </div>
-
-      <!-- Messages -->
-      <div id="dc-messages">
-        <div class="dc-welcome-box" id="dc-welcome-box">
-          <div class="dc-welcome-icon" id="dc-welcome-icon">🌐</div>
-          <div class="dc-welcome-title" id="dc-welcome-title">Welcome to #general!</div>
-          <div class="dc-welcome-sub"  id="dc-welcome-sub">This is the start of the #general channel.</div>
-        </div>
-        <div id="dc-chat-window"></div>
-      </div>
-
-      <!-- Typing -->
-      <div id="dc-typing"></div>
-
-      <!-- Input area -->
-      <div id="dc-input-area" style="position:relative;">
-        <div id="dc-reply-bar">
-          <span>Replying to</span>
-          <span class="dc-rb-to" id="dc-rb-author"></span>
-          <span class="dc-rb-text" id="dc-rb-text"></span>
-          <button id="dc-reply-close">✕</button>
-        </div>
-        <div id="dc-upload-preview">
-          <span style="font-size:20px;" id="dc-up-thumb"></span>
-          <span class="dc-up-fname" id="dc-up-fname"></span>
-          <button id="dc-upload-cancel">✕</button>
-        </div>
-        <div class="dc-upload-progress" id="dc-upload-progress">
-          <div class="dc-upload-progress-bar" id="dc-upload-progress-bar"></div>
-        </div>
-        <!-- Mention / slash popups anchor -->
-        <div style="position:relative;">
-          <div id="dc-mention-popup"></div>
-          <div id="dc-slash-popup"></div>
-        </div>
-        <div id="dc-input-box">
-          <button class="dc-input-icon-btn" id="dc-attach-btn" title="Attach File">＋</button>
-          <input type="file" id="dc-file-input" style="display:none;" />
-          <textarea id="dc-textarea" rows="1" placeholder="Message #general" maxlength="4000"></textarea>
-          <div class="dc-input-right">
-            <button class="dc-input-icon-btn" title="Gifts">🎁</button>
-            <button class="dc-input-icon-btn" title="GIF">GIF</button>
-            <button class="dc-input-icon-btn" title="Stickers">🎨</button>
-            <button class="dc-input-icon-btn" id="dc-emoji-btn" title="Emoji">😊</button>
-          </div>
-        </div>
-        <!-- Emoji panel -->
-        <div class="dc-emoji-panel" id="dc-emoji-panel"></div>
-      </div>
-    </main>
-
-    <!-- ── MEMBERS PANEL ── -->
-    <aside id="dc-members-panel" aria-label="Members">
-      <div id="dc-members-list"></div>
-    </aside>
+<div class="settings-panel" id="settingsPanel">
+  <h3>Appearance</h3>
+  <div class="settings-label">Theme</div>
+  <div class="theme-swatches">
+    <div class="theme-option"><div class="swatch" data-theme="ocean"></div><span>Ocean</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="midnight"></div><span>Midnight</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="sunset"></div><span>Sunset</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="mint"></div><span>Mint</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="neon"></div><span>Neon</span></div>
+    <div class="theme-option"><div class="swatch" data-theme="mono"></div><span>Mono</span></div>
   </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       LIGHTBOX
-  ══════════════════════════════════════════════════════════ -->
-  <div id="dc-lightbox">
-    <img id="dc-lightbox-img" src="" alt="" />
+  <div class="settings-label" style="margin-top:20px;">Mode</div>
+  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+    <span style="font-size:14px;">Dark mode</span>
+    <input type="checkbox" id="darkToggle" />
+  </label>
+  <h3 style="margin-top:20px;">Cursor</h3>
+  <div class="settings-label">Style</div>
+  <div class="cursor-options">
+    <div class="cursor-option active" data-cursor="default"><div class="cursor-preview preview-default"></div>Default</div>
+    <div class="cursor-option" data-cursor="dot"><div class="cursor-preview preview-dot"></div>Dot</div>
+    <div class="cursor-option" data-cursor="ring"><div class="cursor-preview preview-ring"></div>Ring</div>
+    <div class="cursor-option" data-cursor="crosshair"><div class="cursor-preview preview-crosshair"></div>Crosshair</div>
+    <div class="cursor-option" data-cursor="blob"><div class="cursor-preview preview-blob"></div>Blob</div>
+    <div class="cursor-option" data-cursor="system"><div class="cursor-preview preview-system"></div>System</div>
   </div>
+  <div class="cursor-color-row">
+    <label>Cursor color</label>
+    <input type="color" id="cursorColorPicker" value="#3b82f6" />
+    <button id="cursorColorReset">Reset</button>
+  </div>
+</div>
 
-  <!-- ══════════════════════════════════════════════════════════
-       PROFILE POPUP
-  ══════════════════════════════════════════════════════════ -->
-  <div id="dc-profile-popup">
-    <div class="dc-pp-banner" id="dc-pp-banner"></div>
-    <div class="dc-pp-body">
-      <div class="dc-pp-avatar" id="dc-pp-avatar"></div>
-      <div class="dc-pp-name"   id="dc-pp-name"></div>
-      <div class="dc-pp-tag"    id="dc-pp-tag"></div>
-      <div class="dc-pp-divider"></div>
-      <button class="dc-pp-dm-btn" id="dc-pp-dm-btn">💬 Message</button>
+<!-- main.js mounts the user-chip here; kept in the DOM as a fixed-position
+     anchor so it never falls back to appending onto <body> (which would
+     become an unwanted flex child of .dc-body and break the 3-panel layout).
+     Hidden in Discord mode since the rail's own avatar (railUser) already
+     covers identity/sign-in. -->
+<div class="auth-top-right">
+  <button id="signInBtn" class="auth-btn">Sign In</button>
+  <button id="signUpBtn" class="auth-btn">Sign Up</button>
+  <button id="signOutBtn" class="auth-btn" style="display:none;">Sign Out</button>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu" class="ctx-menu hidden">
+  <div class="ctx-item" id="ctx-reply">↩ Reply</div>
+  <div class="ctx-item" id="ctx-react">😊 Add Reaction</div>
+  <div class="ctx-item" id="ctx-thread">🧵 Create Thread</div>
+  <div class="ctx-item" id="ctx-pin">📌 Pin Message</div>
+  <div class="ctx-item" id="ctx-copy">📋 Copy Text</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" id="ctx-delete">🗑 Delete</div>
+</div>
+
+<!-- Reaction picker (emoji quick-pick) -->
+<div id="reaction-picker" class="reaction-picker hidden"></div>
+
+<!-- Thread panel (slides in from right) -->
+<div id="thread-panel" class="thread-panel hidden">
+  <div class="thread-header">
+    <span class="thread-title">Thread</span>
+    <button id="thread-close">✕</button>
+  </div>
+  <div id="thread-root-msg" class="thread-root-msg"></div>
+  <div id="thread-messages" class="thread-messages"></div>
+  <div class="thread-input-row">
+    <textarea id="thread-input" placeholder="Reply in thread…" rows="1" maxlength="2000"></textarea>
+    <button id="thread-send">↑</button>
+  </div>
+</div>
+
+<!-- Pins panel -->
+<div id="pins-panel" class="pins-panel hidden">
+  <div class="pins-header"><span>📌 Pinned Messages</span><button id="pins-close">✕</button></div>
+  <div id="pins-list" class="pins-list"></div>
+</div>
+
+<!-- Members panel -->
+<div id="members-panel" class="members-panel hidden">
+  <div class="members-header"><span>Members</span><button id="members-close">✕</button></div>
+  <div id="members-list" class="members-list"></div>
+</div>
+
+<!-- Profile popup -->
+<div id="profile-popup" class="profile-popup hidden">
+  <div class="pp-banner" id="pp-banner"></div>
+  <div class="pp-body">
+    <div class="pp-avatar-wrap"><div class="pp-avatar" id="pp-avatar"></div></div>
+    <div class="pp-name" id="pp-name"></div>
+    <div class="pp-tag" id="pp-tag"></div>
+    <div class="pp-role" id="pp-role"></div>
+    <hr class="pp-divider"/>
+    <div class="pp-email" id="pp-email"></div>
+    <button class="pp-dm-btn" id="pp-dm-btn">💬 Send Message</button>
+  </div>
+</div>
+
+<!-- Create/Edit Server modal -->
+<div class="dc-modal-overlay hidden" id="serverModal">
+  <div class="dc-modal">
+    <h3 id="serverModalTitle">Create Server</h3>
+    <div class="dc-field"><label>Server Name</label><input id="sm-name" maxlength="32" placeholder="My Server"/></div>
+    <div class="dc-field"><label>Icon Emoji</label><input id="sm-icon" maxlength="2" placeholder="🌐" style="width:60px;text-align:center;font-size:22px;"/></div>
+    <div class="dc-field"><label>Description</label><input id="sm-desc" maxlength="120" placeholder="What's this server about?"/></div>
+    <div class="dc-field"><label>Passcode <span style="font-weight:400;font-size:11px;">(leave blank for public)</span></label><input id="sm-pass" type="password" placeholder="Optional passcode"/></div>
+    <p class="dc-modal-err" id="sm-err"></p>
+    <div class="dc-modal-btns">
+      <button class="dc-btn-sec" id="sm-cancel">Cancel</button>
+      <button class="dc-btn-pri" id="sm-submit">Create</button>
     </div>
   </div>
+</div>
 
-  <!-- ══════════════════════════════════════════════════════════
-       AUTH MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div id="dc-auth-popup">
-    <div class="dc-auth-box">
-      <h2>Welcome back!</h2>
-      <p>Sign in to 360 Chat</p>
-      <input class="dc-auth-input" id="dc-auth-email"    type="email"    placeholder="Email or Phone Number" />
-      <input class="dc-auth-input" id="dc-auth-password" type="password" placeholder="Password" />
-      <div class="dc-auth-error" id="dc-auth-error"></div>
-      <button class="dc-auth-btn" id="dc-auth-login-btn">Log In</button>
-      <div style="text-align:center;font-size:13px;color:#949ba4;margin:-4px 0;">or</div>
-      <div class="dc-oauth-row">
-        <button class="dc-oauth-btn" id="dc-github-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          GitHub
-        </button>
-        <button class="dc-oauth-btn" id="dc-google-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-          Google
-        </button>
-      </div>
-      <div style="text-align:center;margin-top:4px;">
-        <span style="font-size:13px;color:#949ba4;">Need an account? </span>
-        <button class="dc-auth-btn ghost" id="dc-auth-switch-signup" style="display:inline;width:auto;padding:0;font-size:13px;">Register</button>
+<!-- Join Server modal -->
+<div class="dc-modal-overlay hidden" id="joinModal">
+  <div class="dc-modal">
+    <h3>Join Server</h3>
+    <p id="jm-desc" style="font-size:13px;color:var(--mut);margin-bottom:14px;"></p>
+    <div class="dc-field" id="jm-pass-wrap"><label>Passcode</label><input id="jm-pass" type="password"/></div>
+    <p class="dc-modal-err" id="jm-err"></p>
+    <div class="dc-modal-btns">
+      <button class="dc-btn-sec" id="jm-cancel">Cancel</button>
+      <button class="dc-btn-pri" id="jm-join">Join</button>
+    </div>
+  </div>
+</div>
+
+<!-- New DM modal -->
+<div class="dc-modal-overlay hidden" id="dmModal">
+  <div class="dc-modal">
+    <h3>New Direct Message</h3>
+    <div class="dc-field"><label>Email or @Username</label><input id="dm-target" placeholder="someone@example.com or @username"/></div>
+    <p class="dc-modal-err" id="dm-err"></p>
+    <div class="dc-modal-btns">
+      <button class="dc-btn-sec" id="dm-cancel">Cancel</button>
+      <button class="dc-btn-pri" id="dm-start">Start Chat</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Channel modal -->
+<div class="dc-modal-overlay hidden" id="channelModal">
+  <div class="dc-modal">
+    <h3>Add Channel</h3>
+    <div class="dc-field"><label>Channel Name</label><input id="ch-name" placeholder="general" maxlength="32"/></div>
+    <div class="dc-field"><label>Category</label><input id="ch-cat" placeholder="TEXT CHANNELS" maxlength="32"/></div>
+    <div class="dc-field"><label>Topic <span style="font-weight:400;font-size:11px;">(optional)</span></label><input id="ch-topic" placeholder="What's this channel for?" maxlength="120"/></div>
+    <p class="dc-modal-err" id="ch-err"></p>
+    <div class="dc-modal-btns">
+      <button class="dc-btn-sec" id="ch-cancel">Cancel</button>
+      <button class="dc-btn-pri" id="ch-create">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="hidden"><img id="lightbox-img" src="" alt=""/><button id="lightbox-close">✕</button></div>
+
+<!-- ── 3-PANEL DISCORD LAYOUT ─────────────────── -->
+<div class="dc-root">
+
+  <!-- 1. Server rail (left-most, narrow) -->
+  <div class="dc-rail" id="dcRail">
+    <button class="sidebar-toggle" id="sidebarToggle" title="Menu">☰</button>
+    <div class="rail-divider"></div>
+    <div id="rail-servers"></div>
+    <button class="rail-add-btn" id="railAddServer" title="Create or browse servers">＋</button>
+    <div class="rail-divider"></div>
+    <button class="rail-dm-btn" id="railDMs" title="Direct Messages">💬</button>
+    <div class="rail-spacer"></div>
+    <div class="rail-user" id="railUser" title="Your profile"></div>
+  </div>
+
+  <!-- 2. Channel list -->
+  <div class="dc-sidebar" id="dcSidebar">
+    <div class="dc-sidebar-header" id="sidebarHeader">
+      <span id="sb-server-name">360 Chat</span>
+      <button id="sb-server-menu" title="Server settings">⌄</button>
+    </div>
+    <div class="dc-sidebar-body" id="sidebarBody"></div>
+    <div class="dc-sidebar-footer">
+      <div class="dc-user-chip" id="dcUserChip">
+        <div class="dc-user-avatar" id="dcUserAv"></div>
+        <div class="dc-user-info">
+          <div class="dc-user-name" id="dcUserName">Not signed in</div>
+          <div class="dc-user-status">● Online</div>
+        </div>
+        <button class="dc-settings-btn" onclick="window.location.href='/account'" title="Account settings">⚙</button>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════════
-       CREATE SERVER MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div class="dc-modal-overlay" id="dc-create-server-modal">
-    <div class="dc-modal">
-      <h2>Create Your Server</h2>
-      <p>Give your new server a name and set it up how you like. You can always change this later.</p>
-      <div class="dc-modal-label">SERVER NAME</div>
-      <input class="dc-modal-input" id="dc-cs-name"     placeholder="My awesome server" maxlength="32" />
-      <div class="dc-modal-label">PASSCODE <span style="font-weight:400;text-transform:none;">(leave blank for public)</span></div>
-      <input class="dc-modal-input" id="dc-cs-passcode" placeholder="Optional passcode" type="password" />
-      <div class="dc-modal-error"  id="dc-cs-error"></div>
-      <div class="dc-modal-footer">
-        <button class="dc-modal-btn secondary" id="dc-cs-cancel">Cancel</button>
-        <button class="dc-modal-btn primary"   id="dc-cs-create">Create</button>
+  <!-- 3. Main chat area -->
+  <div class="dc-main" id="dcMain">
+    <div class="dc-chat-header" id="dcChatHeader">
+      <button class="dc-mobile-back" id="dcMobileBack">←</button>
+      <span class="dc-ch-icon" id="hdrIcon">#</span>
+      <div class="dc-ch-info">
+        <span class="dc-ch-name" id="hdrName">general</span>
+        <span class="dc-ch-topic" id="hdrTopic"></span>
+      </div>
+      <div class="dc-header-actions">
+        <button class="dc-hdr-btn" id="btnPins" title="Pinned messages">📌</button>
+        <button class="dc-hdr-btn" id="btnMembers" title="Members">👥</button>
+        <span class="dc-online-pill" id="onlinePill"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;"></span> <span id="onlineCount">0</span></span>
+      </div>
+    </div>
+
+    <div id="dc-messages" class="dc-messages"></div>
+
+    <!-- Typing indicator -->
+    <div id="dc-typing" class="dc-typing"></div>
+
+    <!-- Reply bar -->
+    <div id="dc-reply-bar" class="dc-reply-bar hidden">
+      <span>Replying to <strong id="reply-author"></strong>: <em id="reply-preview"></em></span>
+      <button id="reply-cancel-btn">✕</button>
+    </div>
+
+    <!-- Upload preview -->
+    <div id="dc-upload-preview" class="dc-upload-preview hidden">
+      <span id="up-icon">📎</span>
+      <span id="up-name"></span>
+      <button id="up-cancel">✕</button>
+    </div>
+    <div class="dc-upload-bar hidden" id="dc-upload-bar"><div id="dc-upload-fill" class="dc-upload-fill"></div></div>
+
+    <!-- Input -->
+    <div class="dc-input-area">
+      <button class="dc-input-btn" id="attachBtn" title="Attach file">＋</button>
+      <input type="file" id="fileInput" style="display:none"/>
+      <div class="dc-input-box">
+        <div id="dc-mention-popup" class="dc-mention-popup"></div>
+        <textarea id="msgInput" rows="1" placeholder="Message #general…" maxlength="4000"></textarea>
+      </div>
+      <button class="dc-input-btn" id="emojiBtn">😊</button>
+      <div class="dc-emoji-picker hidden" id="dcEmojiPicker"></div>
+      <button class="dc-send-btn" id="sendBtn">↑</button>
+    </div>
+    <div class="dc-input-footer">
+      <span>Markdown: **bold** *italic* `code` · @mention · Enter to send · Shift+Enter newline</span>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;">
+        <span style="font-size:11px;opacity:.5;">Translate:</span>
+        <select id="translateLang" style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--br);background:transparent;color:inherit;font-family:inherit;">
+          <option value="">Off</option>
+          <option value="en">🇬🇧 EN</option><option value="es">🇪🇸 ES</option><option value="fr">🇫🇷 FR</option>
+          <option value="de">🇩🇪 DE</option><option value="ja">🇯🇵 JA</option><option value="ko">🇰🇷 KO</option>
+          <option value="zh">🇨🇳 ZH</option><option value="ar">🇸🇦 AR</option><option value="pt">🇧🇷 PT</option>
+          <option value="ru">🇷🇺 RU</option><option value="hi">🇮🇳 HI</option><option value="tr">🇹🇷 TR</option>
+        </select>
       </div>
     </div>
   </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       JOIN / PASSCODE MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div class="dc-modal-overlay" id="dc-join-server-modal">
-    <div class="dc-modal">
-      <h2 id="dc-js-title">Join Server</h2>
-      <p  id="dc-js-desc">This server requires a passcode to join.</p>
-      <div class="dc-modal-label">PASSCODE</div>
-      <input class="dc-modal-input" id="dc-js-passcode" placeholder="Enter passcode" type="password" />
-      <div class="dc-modal-error"  id="dc-js-error"></div>
-      <div class="dc-modal-footer">
-        <button class="dc-modal-btn secondary" id="dc-js-cancel">Cancel</button>
-        <button class="dc-modal-btn primary"   id="dc-js-join">Join</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       NEW DM MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div class="dc-modal-overlay" id="dc-new-dm-modal">
-    <div class="dc-modal">
-      <h2>Open a Conversation</h2>
-      <p>You can add friends by their email address.</p>
-      <div class="dc-modal-label">FIND OR START A CONVERSATION</div>
-      <input class="dc-modal-input" id="dc-dm-email" placeholder="Enter email" type="email" />
-      <div class="dc-modal-error"  id="dc-dm-error"></div>
-      <div class="dc-modal-footer">
-        <button class="dc-modal-btn secondary" id="dc-dm-cancel">Cancel</button>
-        <button class="dc-modal-btn primary"   id="dc-dm-start">Start</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       ADD CHANNEL MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div class="dc-modal-overlay" id="dc-add-channel-modal">
-    <div class="dc-modal">
-      <h2 id="dc-ac-title">Create Text Channel</h2>
-      <p>Channels are where your members communicate. Create a dedicated space for anything.</p>
-      <div class="dc-modal-label">CHANNEL TYPE</div>
-      <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <label style="flex:1;padding:10px;background:#2b2d31;border-radius:4px;cursor:pointer;border:2px solid transparent;" id="dc-ac-type-text-label">
-          <input type="radio" name="dc-ac-type" value="text" checked style="margin-right:6px;" /> # Text
-        </label>
-        <label style="flex:1;padding:10px;background:#2b2d31;border-radius:4px;cursor:pointer;border:2px solid transparent;" id="dc-ac-type-voice-label">
-          <input type="radio" name="dc-ac-type" value="voice" style="margin-right:6px;" /> 🔊 Voice
-        </label>
-      </div>
-      <div class="dc-modal-label">CHANNEL NAME</div>
-      <input class="dc-modal-input" id="dc-ac-name" placeholder="new-channel" maxlength="32" />
-      <div class="dc-modal-error" id="dc-ac-error"></div>
-      <div class="dc-modal-footer">
-        <button class="dc-modal-btn secondary" id="dc-ac-cancel">Cancel</button>
-        <button class="dc-modal-btn primary"   id="dc-ac-create">Create Channel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       SERVER SETTINGS MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div class="dc-modal-overlay" id="dc-server-settings-modal">
-    <div class="dc-modal" style="width:520px;max-width:96vw;">
-      <h2 id="dc-ss-title">Server Settings</h2>
-      <div style="display:flex;gap:16px;margin-bottom:16px;border-bottom:1px solid #3a3c41;padding-bottom:12px;">
-        <button class="dc-ss-tab active" data-tab="overview" style="background:none;border:none;color:#dbdee1;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:4px;font-family:inherit;">Overview</button>
-        <button class="dc-ss-tab" data-tab="members"  style="background:none;border:none;color:#949ba4;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:4px;font-family:inherit;">Members</button>
-        <button class="dc-ss-tab" data-tab="roles"    style="background:none;border:none;color:#949ba4;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:4px;font-family:inherit;">Roles</button>
-        <button class="dc-ss-tab" data-tab="danger"   style="background:none;border:none;color:#ed4245;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:4px;font-family:inherit;">Danger Zone</button>
-      </div>
-      <!-- Overview tab -->
-      <div class="dc-ss-panel" id="dc-ss-panel-overview">
-        <div class="dc-modal-label">SERVER NAME</div>
-        <input class="dc-modal-input" id="dc-ss-name" placeholder="Server name" />
-        <div class="dc-modal-label">PASSCODE <span style="font-weight:400;text-transform:none;">(blank = public)</span></div>
-        <input class="dc-modal-input" id="dc-ss-passcode" placeholder="Passcode" type="password" />
-        <div class="dc-modal-error" id="dc-ss-error"></div>
-        <div class="dc-modal-footer" style="justify-content:space-between;">
-          <button class="dc-modal-btn secondary" id="dc-ss-close">Close</button>
-          <button class="dc-modal-btn primary"   id="dc-ss-save">Save Changes</button>
-        </div>
-      </div>
-      <!-- Members tab -->
-      <div class="dc-ss-panel" id="dc-ss-panel-members" style="display:none;">
-        <div id="dc-ss-members-list" style="max-height:320px;overflow-y:auto;"></div>
-        <div class="dc-modal-footer"><button class="dc-modal-btn secondary" id="dc-ss-members-close">Close</button></div>
-      </div>
-      <!-- Roles tab -->
-      <div class="dc-ss-panel" id="dc-ss-panel-roles" style="display:none;">
-        <p style="color:#b5bac1;font-size:14px;margin-bottom:12px;">Assign roles to members using <code style="background:#1e1f22;padding:2px 6px;border-radius:4px;">/role &lt;user&gt; &lt;user|mod|admin&gt;</code></p>
-        <div class="dc-modal-footer"><button class="dc-modal-btn secondary" id="dc-ss-roles-close">Close</button></div>
-      </div>
-      <!-- Danger Zone tab -->
-      <div class="dc-ss-panel" id="dc-ss-panel-danger" style="display:none;">
-        <p style="color:#b5bac1;font-size:14px;margin-bottom:16px;">These actions are permanent and cannot be undone.</p>
-        <button class="dc-modal-btn danger" id="dc-ss-delete" style="width:100%;margin-bottom:8px;">🗑️ Delete Server</button>
-        <button class="dc-modal-btn secondary" id="dc-ss-leave" style="width:100%;">🚪 Leave Server</button>
-        <div class="dc-modal-footer" style="margin-top:12px;"><button class="dc-modal-btn secondary" id="dc-ss-danger-close">Close</button></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       USER SETTINGS MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div class="dc-modal-overlay" id="dc-user-settings-modal">
-    <div class="dc-modal">
-      <h2>User Settings</h2>
-      <div class="dc-modal-label">DISPLAY NAME</div>
-      <input class="dc-modal-input" id="dc-us-name" placeholder="Display name" />
-      <div class="dc-modal-label">THEME</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-        <button class="dc-theme-btn" data-theme="ocean"    style="padding:6px 12px;border-radius:4px;border:none;cursor:pointer;background:#3b82f6;color:#fff;font-family:inherit;">Ocean</button>
-        <button class="dc-theme-btn" data-theme="midnight" style="padding:6px 12px;border-radius:4px;border:none;cursor:pointer;background:#6366f1;color:#fff;font-family:inherit;">Midnight</button>
-        <button class="dc-theme-btn" data-theme="sunset"   style="padding:6px 12px;border-radius:4px;border:none;cursor:pointer;background:#f97316;color:#fff;font-family:inherit;">Sunset</button>
-        <button class="dc-theme-btn" data-theme="mint"     style="padding:6px 12px;border-radius:4px;border:none;cursor:pointer;background:#10b981;color:#fff;font-family:inherit;">Mint</button>
-        <button class="dc-theme-btn" data-theme="neon"     style="padding:6px 12px;border-radius:4px;border:none;cursor:pointer;background:#a21caf;color:#fff;font-family:inherit;">Neon</button>
-        <button class="dc-theme-btn" data-theme="mono"     style="padding:6px 12px;border-radius:4px;border:none;cursor:pointer;background:#6b7280;color:#fff;font-family:inherit;">Mono</button>
-      </div>
-      <div class="dc-modal-label">AUTO-TRANSLATE</div>
-      <select id="dc-translate-lang" style="width:100%;padding:10px;border-radius:4px;border:none;background:#1e1f22;color:#dbdee1;font-size:14px;margin-bottom:16px;font-family:inherit;">
-        <option value="">Off</option>
-        <option value="en">🇬🇧 English</option>
-        <option value="es">🇪🇸 Spanish</option>
-        <option value="fr">🇫🇷 French</option>
-        <option value="de">🇩🇪 German</option>
-        <option value="ja">🇯🇵 Japanese</option>
-        <option value="ko">🇰🇷 Korean</option>
-        <option value="zh">🇨🇳 Chinese</option>
-        <option value="pt">🇧🇷 Portuguese</option>
-        <option value="ru">🇷🇺 Russian</option>
-        <option value="ar">🇸🇦 Arabic</option>
-        <option value="hi">🇮🇳 Hindi</option>
-      </select>
-      <div class="dc-modal-footer" style="justify-content:space-between;">
-        <button class="dc-modal-btn danger"    id="dc-us-signout">Sign Out</button>
-        <div style="display:flex;gap:8px;">
-          <button class="dc-modal-btn secondary" id="dc-us-close">Cancel</button>
-          <button class="dc-modal-btn primary"   id="dc-us-save">Save</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       BROWSE COMMUNITIES MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div class="dc-modal-overlay" id="dc-browse-modal">
-    <div class="dc-modal" style="width:520px;max-width:96vw;">
-      <h2>Explore Communities</h2>
-      <input class="dc-modal-input" id="dc-browse-search" placeholder="Search communities…" />
-      <div id="dc-browse-list" style="max-height:340px;overflow-y:auto;margin-bottom:16px;"></div>
-      <div class="dc-modal-footer">
-        <button class="dc-modal-btn secondary" id="dc-browse-close">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       INVITE MODAL
-  ══════════════════════════════════════════════════════════ -->
-  <div class="dc-modal-overlay" id="dc-invite-modal">
-    <div class="dc-modal">
-      <h2>Invite People</h2>
-      <p id="dc-invite-desc">Share this link to invite friends to your server.</p>
-      <input class="dc-modal-input" id="dc-invite-link" readonly style="cursor:text;" />
-      <div class="dc-modal-footer" style="justify-content:space-between;">
-        <button class="dc-modal-btn secondary" id="dc-invite-close">Close</button>
-        <button class="dc-modal-btn primary"   id="dc-invite-copy">Copy Link</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       TOAST CONTAINER
-  ══════════════════════════════════════════════════════════ -->
-  <div id="dc-toast-container" style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;"></div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       SCRIPTS
-  ══════════════════════════════════════════════════════════ -->
-  <script src="/assets/js/main.js"></script>
-  <script src="/assets/js/cookie.js"></script>
-  <script src="/assets/js/cursor.js"></script>
-
-  <script>
-  /* ════════════════════════════════════════════════════════════
-     360 CHAT — DISCORD UI CONTROLLER  v3.0
-     Bridges the existing chat.js logic to the new Discord HTML.
-     All Supabase calls go through sb (set by main.js).
-  ════════════════════════════════════════════════════════════ */
-  window.SKIP_AUTH_CHIP = true;
-
-  /* ── Helpers ── */
-  function dcEl(id) { return document.getElementById(id); }
-  function getInitials(n) { if(!n)return"?";const p=n.trim().split(" ");return p.length===1?p[0][0].toUpperCase():(p[0][0]+p[1][0]).toUpperCase(); }
-  function formatTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); }
-  function formatDate(ts) {
-    const d=new Date(ts),t=new Date(),y=new Date(t);y.setDate(t.getDate()-1);
-    if(d.toDateString()===t.toDateString())return"Today";
-    if(d.toDateString()===y.toDateString())return"Yesterday";
-    return d.toLocaleDateString([],{month:"long",day:"numeric",year:"numeric"});
-  }
-  function isImage(url){return/\.(jpe?g|png|gif|webp|svg|bmp)(\?|$)/i.test(url);}
-
-  /* ── Toast ── */
-  function showToast(msg, type="info") {
-    const el = document.createElement("div");
-    el.textContent = msg;
-    el.style.cssText = `background:${type==="error"?"#ed4245":type==="success"?"#23a55a":"rgba(30,31,34,.97)"};color:#fff;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.4);animation:dcToastIn .2s ease;`;
-    dcEl("dc-toast-container").appendChild(el);
-    setTimeout(()=>el.remove(),3000);
-  }
-
-  const style = document.createElement("style");
-  style.textContent = `@keyframes dcToastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`;
-  document.head.appendChild(style);
-
-  /* ── State ── */
-  let currentUserId   = null;
-  let currentProfile  = null;
-  let activeRoom      = { type:"public", id:"public", name:"general", icon:"🌐" };
-  let activeServerId  = null;
-  let pendingFile     = null;
-  let replyingTo      = null;
-  let typingUsers     = {};
-  let typingTimeouts  = {};
-  let realtimeChannel = null;
-  let typingChannel   = null;
-  let lastMsgUserId   = null;
-  let lastMsgDate     = null;
-  let isSending       = false;
-  let membersVisible  = true;
-  let isMuted         = false;
-  let isDeafened      = false;
-  let slowModeSeconds = 0;
-  let lastSentTime    = 0;
-  let activeVoiceChannel = null;
-  let micStream       = null;
-  let peerConnections = {};
-  let joinPending     = null;
-  let historyExhausted = false;
-  let oldestMsgDate   = null;
-  let isLoadingMore   = false;
-  const msgElMap      = new Map();
-  const profileCache  = {};
-  const unreadCounts  = {};
-  const knownUsers    = [];
-
-  const EMOJIS = ['😀','😂','😍','🥰','😎','🤔','😢','😡','👍','👎','❤️','🔥','💀','🎉','✨','💯','🚀','⭐','👀','🙏','💪','🤖','😊','🥺','🤣','😅','😱','🤩','😴','🥳','😤','😏','🫡','🫶','💪'];
-  const SHORTCODES = {':skull:':'💀',':fire:':'🔥',':heart:':'❤️',':thumbsup:':'👍',':thumbsdown:':'👎',':laugh:':'😂',':cry:':'😢',':wow:':'😮',':clap:':'👏',':rose:':'🥀',':sparkles:':'✨',':100:':'💯',':rocket:':'🚀',':eyes:':'👀',':ok:':'👌',':wave:':'👋',':pray:':'🙏',':muscle:':'💪',':star:':'⭐',':check:':'✅',':x:':'❌',':warning:':'⚠️',':zap:':'⚡',':rainbow:':'🌈',':sun:':'☀️',':moon:':'🌙',':trophy:':'🏆',':crown:':'👑',':diamond:':'💎',':robot:':'🤖',':nerd:':'🤓',':360:':'🔵',':gg:':'🎮',':bruh:':'😑'};
-
-  function applyShortcodes(t){return t.replace(/:[a-z0-9_]+:/g,m=>SHORTCODES[m]||m);}
-
-  /* ── Supabase wait ── */
-  let sb;
-  function waitForSb(cb) {
-    if (window.supabaseClient) { sb = window.supabaseClient; cb(); return; }
-    const t = setInterval(()=>{ if(window.supabaseClient){ sb=window.supabaseClient; clearInterval(t); cb(); } },50);
-  }
-
-  /* ── Profile ── */
-  async function getProfile(uid) {
-    if(!uid)return{username:"Unknown",avatar_url:null,role:"user",tag:null,email:null};
-    if(profileCache[uid])return profileCache[uid];
-    const{data}=await sb.from("profiles").select("username,avatar_url,role,tag,email").eq("id",uid).single();
-    const p=data||{username:"Unknown",avatar_url:null,role:"user",tag:null,email:null};
-    profileCache[uid]=p; return p;
-  }
-
-  function avatarHTML(username, avatarUrl, uid, size=40) {
-    const init = getInitials(username);
-    const style = `width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${Math.floor(size*0.35)}px;font-weight:700;color:#fff;background:linear-gradient(120deg,var(--a),var(--a2));overflow:hidden;flex-shrink:0;cursor:pointer;`;
-    if (avatarUrl) return `<div style="${style}" data-uid="${uid}"><img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.textContent='${init}'" /></div>`;
-    return `<div style="${style}" data-uid="${uid}">${init}</div>`;
-  }
-
-  /* ══════════════════════════════════════════════
-     SERVER RAIL — update active state
-  ══════════════════════════════════════════════ */
-  function setRailActive(id) {
-    document.querySelectorAll(".dc-server-pill-wrap").forEach(el=>el.classList.remove("active"));
-    if(id) document.getElementById(id)?.classList.add("active");
-  }
-
-  /* ══════════════════════════════════════════════
-     LOAD COMMUNITIES → populate rail + sidebar
-  ══════════════════════════════════════════════ */
-  async function loadCommunities() {
-    const{data}=await sb.from("servers").select("*").order("name");
-    const rail = dcEl("dc-rail-communities");
-    rail.innerHTML = "";
-    if(!data) return;
-    data.forEach(s => {
-      const wrap = document.createElement("div");
-      wrap.className = "dc-server-pill-wrap";
-      wrap.dataset.serverId = s.id;
-      wrap.title = s.name;
-      const icon = document.createElement("div");
-      icon.className = "dc-server-pill";
-      const btn = document.createElement("div");
-      btn.className = "dc-server-icon";
-      btn.style.fontSize = "15px";
-      btn.style.fontWeight = "800";
-      btn.textContent = s.name.slice(0,2).toUpperCase();
-      wrap.appendChild(icon);
-      wrap.appendChild(btn);
-      wrap.addEventListener("click", ()=>handleCommunityClick(s));
-      rail.appendChild(wrap);
-    });
-  }
-
-  async function handleCommunityClick(server) {
-    if(!currentUserId){ openAuth(); return; }
-    const{data:mem}=await sb.from("server_members").select("id").eq("server_id",server.id).eq("user_id",currentUserId).maybeSingle();
-    if(mem){ await enterCommunity(server); }
-    else if(server.passcode){ showJoinModal(server); }
-    else { await joinAndEnter(server); }
-  }
-
-  async function enterCommunity(server, locked=false) {
-    activeServerId = server.id;
-    setRailActive(null);
-    document.querySelectorAll("#dc-rail-communities .dc-server-pill-wrap").forEach(el=>el.classList.remove("active"));
-    document.querySelector(`#dc-rail-communities [data-server-id="${server.id}"]`)?.classList.add("active");
-
-    dcEl("dc-server-header-name").textContent = server.name;
-    dcEl("dc-dm-section").style.display = "none";
-    dcEl("dc-server-section").style.display = "";
-
-    await loadChannels(server);
-    await loadMembers(server.id);
-    await checkServerAdmin(server);
-    if (locked) showPasscodeGateInline(server);
-  }
-
-  async function loadChannels(server) {
-    const{data}=await sb.from("channels").select("*").eq("server_id",server.id).order("name");
-    const inner = dcEl("dc-channels-inner");
-    const voiceInner = dcEl("dc-voice-channels-inner");
-    inner.innerHTML = "";
-    voiceInner.innerHTML = "";
-
-    const textCat = document.createElement("div");
-    textCat.className = "dc-category";
-    textCat.innerHTML = `<span class="dc-cat-arrow">▼</span> TEXT CHANNELS <span class="dc-cat-add" id="dc-add-text-ch" title="Add channel">＋</span>`;
-    inner.appendChild(textCat);
-
-    if(!data || !data.length) {
-      // auto-create general
-      const{data:newCh}=await sb.from("channels").insert({name:"general",server_id:server.id,is_public:true,type:"text"}).select().single();
-      if(newCh) renderChannelItem(inner, voiceInner, newCh, server);
-    } else {
-      data.forEach(ch => renderChannelItem(inner, voiceInner, ch, server));
-    }
-
-    dcEl("dc-add-text-ch")?.addEventListener("click",e=>{e.stopPropagation();openAddChannelModal("text",server.id);});
-    dcEl("dc-add-voice-ch")?.addEventListener("click",e=>{e.stopPropagation();openAddChannelModal("voice",server.id);});
-
-    // switch to first text channel
-    const firstText = data?.find(c=>c.type!=="voice");
-    if(firstText) switchRoom({type:"channel",id:firstText.id,name:firstText.name,icon:"#",serverName:server.name,serverId:server.id});
-    else if(data?.length) switchRoom({type:"channel",id:data[0].id,name:data[0].name,icon:"#",serverName:server.name,serverId:server.id});
-  }
-
-  function renderChannelItem(textContainer, voiceContainer, ch, server) {
-    const isVoice = ch.type === "voice";
-    const item = document.createElement("div");
-    item.className = "dc-channel-item";
-    item.dataset.channelId = ch.id;
-    item.innerHTML = `
-      <span class="dc-channel-icon">${isVoice?"🔊":"#"}</span>
-      <span class="dc-channel-name">${ch.name}</span>
-      <span class="dc-channel-actions">
-        <button class="dc-channel-action-btn" title="Settings">⚙</button>
-        <button class="dc-channel-action-btn dc-ch-del" title="Delete">✕</button>
-      </span>`;
-
-    item.addEventListener("click", e=>{
-      if(e.target.classList.contains("dc-ch-del")){
-        e.stopPropagation();
-        deleteChannel(ch.id, server);
-        return;
-      }
-      if(isVoice){
-        joinVoiceChannel(ch, server);
-      } else {
-        setActiveChannel(ch.id);
-        switchRoom({type:"channel",id:ch.id,name:ch.name,icon:"#",serverName:server.name,serverId:server.id});
-      }
-    });
-
-    if(isVoice) voiceContainer.appendChild(item);
-    else textContainer.appendChild(item);
-  }
-
-  function setActiveChannel(channelId) {
-    document.querySelectorAll(".dc-channel-item").forEach(el=>el.classList.remove("active"));
-    document.querySelector(`[data-channel-id="${channelId}"]`)?.classList.add("active");
-  }
-
-  async function checkServerAdmin(server) {
-    const isOwner = server.owner_id === currentUserId;
-    const isAdmin = currentProfile?.role === "admin" || isAdmin;
-    dcEl("dc-server-mgmt").style.display = (isOwner || currentProfile?.role === "admin") ? "" : "none";
-  }
-
-  async function joinAndEnter(server) {
-    const{error}=await sb.from("server_members").insert({server_id:server.id,user_id:currentUserId});
-    if(error&&!error.message.includes("unique")){showToast(error.message,"error");return;}
-    await loadCommunities();
-    await enterCommunity(server);
-  }
-
-  function showJoinModal(server) {
-    joinPending = server;
-    dcEl("dc-js-title").textContent = `Join ${server.name}`;
-    dcEl("dc-js-desc").textContent = "This server requires a passcode.";
-    dcEl("dc-js-passcode").value = "";
-    dcEl("dc-js-error").textContent = "";
-    dcEl("dc-join-server-modal").classList.add("open");
-  }
-
-  function showPasscodeGateInline(server) {
-    dcEl("dc-chat-window").innerHTML = "";
-    const gate = document.createElement("div");
-    gate.style.cssText="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:40px;text-align:center;";
-    gate.innerHTML=`<div style="font-size:56px">🔒</div><div style="font-size:22px;font-weight:800;color:#f2f3f5;">${server.name}</div><div style="color:#949ba4;">Enter the passcode to unlock this server.</div><input id="inline-gate-input" type="password" placeholder="Passcode" style="padding:11px 18px;border-radius:4px;border:none;background:#1e1f22;color:#dbdee1;font-size:15px;width:260px;outline:none;font-family:inherit;text-align:center;" /><p id="inline-gate-error" style="color:#ed4245;font-size:13px;min-height:16px;"></p><button id="inline-gate-btn" style="padding:11px 40px;border-radius:4px;border:none;background:var(--a);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Unlock</button>`;
-    dcEl("dc-chat-window").appendChild(gate);
-    async function tryUnlock(){
-      const pc=dcEl("inline-gate-input").value.trim();
-      if(!pc){dcEl("inline-gate-error").textContent="Enter the passcode.";return;}
-      if(pc!==server.passcode){dcEl("inline-gate-error").textContent="Wrong passcode.";dcEl("inline-gate-input").value="";return;}
-      const{error}=await sb.from("server_members").insert({server_id:server.id,user_id:currentUserId});
-      if(error&&!error.message.includes("unique")){dcEl("inline-gate-error").textContent=error.message;return;}
-      dcEl("dc-chat-window").innerHTML="";
-      await loadCommunities();
-      await loadHistory();
-    }
-    dcEl("inline-gate-btn").onclick=tryUnlock;
-    dcEl("inline-gate-input").onkeydown=e=>{if(e.key==="Enter")tryUnlock();};
-  }
-
-  /* ══════════════════════════════════════════════
-     DM SECTION
-  ══════════════════════════════════════════════ */
-  async function loadDMs() {
-    if(!currentUserId) return;
-    const{data}=await sb.from("direct_messages").select("*").or(`user_a.eq.${currentUserId},user_b.eq.${currentUserId}`).order("updated_at",{ascending:false});
-    const list = dcEl("dc-dm-list-inner");
-    list.innerHTML = "";
-    if(!data?.length) return;
-    const otherIds = data.map(dm=>dm.user_a===currentUserId?dm.user_b:dm.user_a);
-    const profiles = await Promise.all(otherIds.map(id=>getProfile(id)));
-    data.forEach((dm,i)=>{
-      const other=profiles[i], otherId=otherIds[i];
-      const div=document.createElement("div");
-      div.className="dc-channel-item";
-      div.dataset.dmId=dm.id;
-      div.innerHTML=`${avatarHTML(other.username,other.avatar_url,otherId,32)}<span class="dc-channel-name" style="margin-left:8px;">${other.username}</span>
-        <button class="dc-channel-action-btn" title="Close DM" style="display:none;" onclick="event.stopPropagation();this.closest('[data-dm-id]').remove();">✕</button>`;
-      div.addEventListener("click",()=>{
-        document.querySelectorAll(".dc-channel-item").forEach(el=>el.classList.remove("active"));
-        div.classList.add("active");
-        switchRoom({type:"dm",id:dm.id,name:other.username,icon:"👤",otherId});
-      });
-      div.addEventListener("mouseenter",()=>div.querySelector("button").style.display="flex");
-      div.addEventListener("mouseleave",()=>div.querySelector("button").style.display="none");
-      list.appendChild(div);
-    });
-  }
-
-  function showDMPanel() {
-    activeServerId = null;
-    setRailActive("rail-home");
-    dcEl("dc-server-header-name").textContent = "Direct Messages";
-    dcEl("dc-dm-section").style.display = "";
-    dcEl("dc-server-section").style.display = "none";
-  }
-
-  async function startDMByEmail(email) {
-    if(!email){dcEl("dc-dm-error").textContent="Enter an email.";return;}
-    const{data:p}=await sb.from("profiles").select("id,username,email").eq("email",email.toLowerCase()).maybeSingle();
-    if(!p){dcEl("dc-dm-error").textContent="No user found.";return;}
-    if(p.id===currentUserId){dcEl("dc-dm-error").textContent="That's you!";return;}
-    const{data:ex}=await sb.from("direct_messages").select("id").or(`and(user_a.eq.${currentUserId},user_b.eq.${p.id}),and(user_a.eq.${p.id},user_b.eq.${currentUserId})`).maybeSingle();
-    let dmId;
-    if(ex){dmId=ex.id;}
-    else{const{data:newDm,error}=await sb.from("direct_messages").insert({user_a:currentUserId,user_b:p.id}).select().single();if(error){dcEl("dc-dm-error").textContent=error.message;return;}dmId=newDm.id;}
-    dcEl("dc-new-dm-modal").classList.remove("open");
-    showDMPanel();
-    await loadDMs();
-    document.querySelector(`[data-dm-id="${dmId}"]`)?.click();
-  }
-
-  /* ══════════════════════════════════════════════
-     SWITCH ROOM
-  ══════════════════════════════════════════════ */
-  function switchRoom(room) {
-    activeRoom=room; lastMsgUserId=null; lastMsgDate=null; replyingTo=null;
-    dcEl("dc-reply-bar").classList.remove("show");
-
-    // topbar
-    const isVoice = room.icon==="🔊";
-    dcEl("dc-tb-icon").textContent = room.type==="dm"?"👤": isVoice?"🔊":"#";
-    dcEl("dc-tb-name").textContent = room.name;
-    dcEl("dc-tb-topic").textContent =
-      room.type==="public"?"360's public chat — everyone is welcome":
-      room.type==="dm"?"Direct Message":
-      room.serverName?`${room.serverName} › #${room.name}`:"";
-    dcEl("dc-textarea").placeholder = `Message ${room.type==="dm"?"@":"#"}${room.name}`;
-
-    // welcome box
-    dcEl("dc-welcome-icon").textContent = room.type==="dm"?"👤":room.icon||"#";
-    dcEl("dc-welcome-title").textContent = room.type==="dm"?`@${room.name}`:`Welcome to #${room.name}!`;
-    dcEl("dc-welcome-sub").textContent = room.type==="dm"?`This is the beginning of your direct message history with @${room.name}.`:`This is the start of the #${room.name} channel.`;
-
-    // stop previous channels
-    if(realtimeChannel) sb.removeChannel(realtimeChannel);
-    if(typingChannel)   sb.removeChannel(typingChannel);
-    typingUsers={}; renderTyping();
-
-    loadHistory();
-
-    // realtime
-    const rtKey=`rt-${room.type}-${String(room.id).replace(/-/g,"")}-${Date.now()}`;
-    const rtChan=sb.channel(rtKey);
-    if(room.type==="channel"){
-      rtChan.on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`channel_id=eq.${room.id}`},p=>{renderMessage(p.new,true);});
-    } else if(room.type==="server"){
-      rtChan.on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`server_id=eq.${room.id}`},p=>{renderMessage(p.new,true);});
-    } else if(room.type==="dm"){
-      rtChan.on("postgres_changes",{event:"INSERT",schema:"public",table:"dm_messages",filter:`dm_id=eq.${room.id}`},p=>{renderMessage(p.new,true);});
-    } else {
-      rtChan.on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},p=>{renderMessage(p.new,true);});
-    }
-    realtimeChannel=rtChan.subscribe();
-
-    typingChannel=sb.channel(`typing-${room.type}-${room.id}`)
-      .on("broadcast",{event:"typing"},payload=>{
-        const{username,uid}=payload.payload;
-        if(uid===currentUserId)return;
-        typingUsers[uid]={username};renderTyping();
-        clearTimeout(typingTimeouts[uid]);
-        typingTimeouts[uid]=setTimeout(()=>{delete typingUsers[uid];renderTyping();},2500);
-      }).subscribe();
-
-    markRoomRead(room);
-  }
-
-  /* ══════════════════════════════════════════════
-     HISTORY
-  ══════════════════════════════════════════════ */
-  async function loadHistory() {
-    dcEl("dc-chat-window").innerHTML="";
-    msgElMap.clear();
-    lastMsgUserId=null; lastMsgDate=null;
-    historyExhausted=false; oldestMsgDate=null;
-    await fetchMessages(null);
-    scrollBottom();
-  }
-
-  async function fetchMessages(beforeDate) {
-    let q;
-    const LIMIT=50;
-    if(activeRoom.type==="dm") q=sb.from("dm_messages").select("*").eq("dm_id",activeRoom.id);
-    else if(activeRoom.type==="channel") q=sb.from("messages").select("*").eq("channel_id",activeRoom.id).is("deleted_at",null);
-    else if(activeRoom.type==="server")  q=sb.from("messages").select("*").eq("server_id",activeRoom.id).is("deleted_at",null);
-    else q=sb.from("messages").select("*").is("channel_id",null).is("dm_id",null).is("server_id",null).is("deleted_at",null);
-    if(beforeDate) q=q.lt("created_at",beforeDate);
-    const{data,error}=await q.order("created_at",{ascending:false}).limit(LIMIT);
-    if(error||!data?.length){historyExhausted=true;return;}
-    if(data.length<LIMIT) historyExhausted=true;
-    const msgs=data.reverse();
-    oldestMsgDate=msgs[0].created_at;
-    if(beforeDate){
-      const win=dcEl("dc-chat-window"),prev=win.scrollHeight;
-      const saved={u:lastMsgUserId,d:lastMsgDate};
-      lastMsgUserId=null;lastMsgDate=null;
-      const els=[];
-      msgs.forEach(m=>renderMessageToArr(m,els));
-      const first=win.firstChild;
-      els.reverse().forEach(el=>win.insertBefore(el,first));
-      lastMsgUserId=saved.u;lastMsgDate=saved.d;
-      win.scrollTop=win.scrollHeight-prev;
-    } else {
-      msgs.forEach(m=>renderMessage(m,false));
-      if(msgs.length&&activeRoom.type!=="dm"){
-        const ids=msgs.map(m=>m.id);
-        const{data:rxns}=await sb.from("reactions").select("emoji,user_id,message_id").in("message_id",ids);
-        if(rxns){
-          const byMsg={};
-          rxns.forEach(r=>{(byMsg[r.message_id]=byMsg[r.message_id]||[]).push(r);});
-          Object.entries(byMsg).forEach(([mid,rList])=>renderReactions(mid,rList));
-        }
-      }
-    }
-  }
-
-  dcEl("dc-messages").addEventListener("scroll",async function(){
-    if(this.scrollTop>120||isLoadingMore||historyExhausted||!oldestMsgDate)return;
-    isLoadingMore=true;
-    const loader=document.createElement("div");loader.style.cssText="text-align:center;padding:8px;font-size:12px;color:#949ba4;";loader.textContent="Loading more…";
-    dcEl("dc-chat-window").prepend(loader);
-    await fetchMessages(oldestMsgDate);
-    loader.remove();isLoadingMore=false;
-  });
-
-  /* ══════════════════════════════════════════════
-     RENDER MESSAGE
-  ══════════════════════════════════════════════ */
-  function buildMsgEl(msg) {
-    const r=activeRoom;
-    if(r.type==="public"){if(msg.channel_id||msg.dm_id||msg.server_id)return null;}
-    else if(r.type==="channel"){if(String(msg.channel_id)!==String(r.id))return null;}
-    else if(r.type==="server"){if(String(msg.server_id)!==String(r.id))return null;}
-    else if(r.type==="dm"){if(String(msg.dm_id)!==String(r.id))return null;}
-    if(msgElMap.has(String(msg.id)))return null;
-
-    const win=dcEl("dc-chat-window");
-    const msgDate=formatDate(msg.created_at);
-    if(msgDate!==lastMsgDate){
-      const d=document.createElement("div");d.className="dc-date-divider";d.textContent=msgDate;
-      lastMsgDate=msgDate;lastMsgUserId=null;
-      return{divider:d};
-    }
-    const grouped=msg.user_id===lastMsgUserId;lastMsgUserId=msg.user_id;
-
-    const roleBadge=msg.role&&msg.role!=="user"?`<span class="dc-role-badge dc-role-${msg.role}">${msg.role}</span>`:"";
-    const rawText=(msg.text||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    const safeText=rawText.replace(/@(\w+)/g,(m,n)=>{
-      const isMe=currentProfile&&n.toLowerCase()===(currentProfile.username||"").toLowerCase();
-      return `<span class="dc-mention${isMe?" mine":""}">${m}</span>`;
-    });
-
-    let replyHTML="";
-    if(msg.reply_to_id&&msg.reply_to_text){
-      const sr=(msg.reply_to_text||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      replyHTML=`<div class="dc-reply-ref" data-jump="${msg.reply_to_id}"><div class="dc-reply-ref-avatar">${getInitials(msg.reply_to_username||"?")}</div><span class="dc-reply-ref-name">${msg.reply_to_username||"Unknown"}</span><span class="dc-reply-ref-text">${sr}</span></div>`;
-    }
-
-    let attachHTML="";
-    if(msg.file_url){
-      if(isImage(msg.file_url)) attachHTML=`<img class="dc-msg-image" src="${msg.file_url}" alt="image" loading="lazy" />`;
-      else{const fn=decodeURIComponent(msg.file_url.split("/").pop().split("?")[0]);attachHTML=`<a class="dc-msg-file" href="${msg.file_url}" target="_blank">📎 ${fn}</a>`;}
-    }
-
-    const el=document.createElement("div");
-    el.className="dc-msg"+(grouped?" dc-grouped":"");
-    el.dataset.msgId=msg.id;
-    el.innerHTML=`
-      ${grouped?`<span class="dc-msg-ts-inline">${formatTime(msg.created_at)}</span>`:""}
-      ${avatarHTML(msg.username||"?",msg.avatar_url,msg.user_id)}
-      <div class="dc-msg-body">
-        ${!grouped?`<div class="dc-msg-header"><span class="dc-msg-username" data-uid="${msg.user_id}">${msg.username||"Unknown"}${roleBadge}</span><span class="dc-msg-timestamp">${formatTime(msg.created_at)}</span></div>`:""}
-        ${replyHTML}
-        ${safeText?`<div class="dc-msg-content">${safeText}</div>`:""}
-        ${attachHTML}
-        <div class="dc-reactions" id="dc-reactions-${msg.id}"></div>
-      </div>
-      <div class="dc-msg-actions">
-        <div class="dc-emoji-quick">
-          ${EMOJIS.slice(0,3).map(em=>`<button class="dc-ma-btn dc-quick-react" data-msg="${msg.id}" data-emoji="${em}" title="${em}">${em}</button>`).join("")}
-        </div>
-        <button class="dc-ma-btn dc-reply-btn"  data-msg="${msg.id}" title="Reply">↩️</button>
-        <button class="dc-ma-btn dc-react-btn"  data-msg="${msg.id}" title="Add Reaction">😊</button>
-        ${currentUserId===msg.user_id?`<button class="dc-ma-btn dc-edit-btn" data-msg="${msg.id}" title="Edit">✏️</button>`:""}
-        ${(currentUserId===msg.user_id||currentProfile?.role==="admin"||currentProfile?.role==="mod")?`<button class="dc-ma-btn dc-del-btn" data-msg="${msg.id}" title="Delete">🗑️</button>`:""}
-        <button class="dc-ma-btn" title="More">…</button>
-      </div>`;
-
-    // wire events
-    el.querySelectorAll("[data-uid]").forEach(av=>{
-      av.style.cursor="pointer";
-      av.addEventListener("click",e=>{e.stopPropagation();showProfilePopup(av.dataset.uid,av);});
-    });
-    el.querySelectorAll(".dc-reply-ref").forEach(q=>{
-      q.addEventListener("click",()=>{
-        const t=msgElMap.get(String(q.dataset.jump));
-        if(t){t.scrollIntoView({behavior:"smooth",block:"center"});t.style.background="rgba(88,101,242,.15)";setTimeout(()=>t.style.background="",1500);}
-      });
-    });
-    el.querySelectorAll(".dc-quick-react").forEach(btn=>{
-      btn.addEventListener("click",e=>{e.stopPropagation();toggleReaction(btn.dataset.msg,btn.dataset.emoji);});
-    });
-    el.querySelector(".dc-reply-btn")?.addEventListener("click",e=>{
-      e.stopPropagation();
-      replyingTo={id:msg.id,username:msg.username,text:msg.text||(msg.file_url?"📎 file":"")};
-      dcEl("dc-rb-author").textContent=msg.username;
-      dcEl("dc-rb-text").textContent=replyingTo.text;
-      dcEl("dc-reply-bar").classList.add("show");
-      dcEl("dc-textarea").focus();
-    });
-    el.querySelector(".dc-react-btn")?.addEventListener("click",e=>{
-      e.stopPropagation();
-      const picker=buildFloatingEmojiPicker(msg.id,e.currentTarget);
-      document.body.appendChild(picker);
-    });
-    el.querySelector(".dc-del-btn")?.addEventListener("click",()=>deleteMessage(msg.id));
-    el.querySelector(".dc-edit-btn")?.addEventListener("click",()=>startEditMessage(msg,el));
-    const img=el.querySelector(".dc-msg-image");
-    if(img) img.addEventListener("click",()=>{dcEl("dc-lightbox-img").src=img.src;dcEl("dc-lightbox").classList.add("open");});
-
-    if(msg.username) registerUser(msg.username);
-    return el;
-  }
-
-  function renderMessageToArr(msg,arr) {
-    const res=buildMsgEl(msg);
-    if(!res)return;
-    if(res.divider){arr.push(res.divider);lastMsgUserId=null;}
-    else{arr.push(res);msgElMap.set(String(msg.id),res);}
-  }
-
-  function renderMessage(msg,loadRxn=true) {
-    const win=dcEl("dc-chat-window");
-    const res=buildMsgEl(msg);
-    if(!res)return;
-    if(res.divider){win.appendChild(res.divider);lastMsgUserId=null;
-      // retry the message now
-      const el2=buildMsgEl(msg);if(el2&&!el2.divider){win.appendChild(el2);msgElMap.set(String(msg.id),el2);}
-      return;
-    }
-    win.appendChild(res);
-    msgElMap.set(String(msg.id),res);
-    if(loadRxn){
-      if(activeRoom.type!=="dm") loadReactionsSingle(msg.id);
-      const w=dcEl("dc-messages");
-      if(w.scrollHeight-w.scrollTop-w.clientHeight<300) scrollBottom();
-      // ping mention
-      if(msg.text&&currentProfile){
-        const mentioned=new RegExp("@"+currentProfile.username+"\\b","i").test(msg.text);
-        if(mentioned&&msg.user_id!==currentUserId){
-          try{new Audio("/click-sound.mp3").play().catch(()=>{});}catch(e){}
-        }
-      }
-      maybePushNotif(msg);
-    }
-    if(msg.text) maybeTranslate(res,msg.text);
-  }
-
-  /* ── Edit message ── */
-  function startEditMessage(msg, el) {
-    const contentDiv = el.querySelector(".dc-msg-content");
-    if(!contentDiv)return;
-    const orig = msg.text||"";
-    const inp = document.createElement("textarea");
-    inp.value = orig;
-    inp.style.cssText = "width:100%;background:#383a40;border:none;border-radius:4px;color:#dbdee1;font-size:15px;padding:8px;font-family:inherit;resize:none;outline:none;box-sizing:border-box;";
-    inp.rows=3;
-    contentDiv.replaceWith(inp);
-    inp.focus();
-    inp.addEventListener("keydown",async e=>{
-      if(e.key==="Enter"&&!e.shiftKey){
-        e.preventDefault();
-        const newText=inp.value.trim();
-        if(!newText)return;
-        const tbl=activeRoom.type==="dm"?"dm_messages":"messages";
-        await sb.from(tbl).update({text:newText}).eq("id",msg.id);
-        const newDiv=document.createElement("div");newDiv.className="dc-msg-content";
-        newDiv.textContent=newText;inp.replaceWith(newDiv);
-        showToast("Message edited","success");
-      }
-      if(e.key==="Escape"){
-        const newDiv=document.createElement("div");newDiv.className="dc-msg-content";newDiv.textContent=orig;inp.replaceWith(newDiv);
-      }
-    });
-  }
-
-  /* ══════════════════════════════════════════════
-     REACTIONS
-  ══════════════════════════════════════════════ */
-  function buildFloatingEmojiPicker(msgId, anchor) {
-    document.querySelectorAll(".dc-floating-picker").forEach(p=>p.remove());
-    const panel=document.createElement("div");
-    panel.className="dc-floating-picker";
-    panel.style.cssText="position:fixed;background:#2b2d31;border:1px solid #3a3c41;border-radius:8px;padding:12px;display:flex;flex-wrap:wrap;gap:3px;width:280px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.5);";
-    const rect=anchor.getBoundingClientRect();
-    panel.style.bottom=(window.innerHeight-rect.top+4)+"px";
-    panel.style.right=(window.innerWidth-rect.right+4)+"px";
-    EMOJIS.forEach(em=>{
-      const b=document.createElement("button");b.style.cssText="font-size:22px;padding:4px;border-radius:4px;cursor:pointer;border:none;background:none;line-height:1;";b.textContent=em;
-      b.addEventListener("click",e=>{e.stopPropagation();toggleReaction(msgId,em);panel.remove();});
-      panel.appendChild(b);
-    });
-    setTimeout(()=>document.addEventListener("click",()=>panel.remove(),{once:true}),0);
-    return panel;
-  }
-
-  async function loadReactionsSingle(msgId){
-    const{data}=await sb.from("reactions").select("emoji,user_id").eq("message_id",msgId);
-    if(data) renderReactions(msgId,data);
-  }
-  function renderReactions(msgId,reactions){
-    const row=dcEl(`dc-reactions-${msgId}`);if(!row)return;
-    const g={};reactions.forEach(r=>{(g[r.emoji]=g[r.emoji]||[]).push(r.user_id);});
-    row.innerHTML="";
-    Object.entries(g).forEach(([em,users])=>{
-      const pill=document.createElement("div");
-      pill.className="dc-reaction"+(users.includes(currentUserId)?" mine":"");
-      pill.innerHTML=`${em}<span class="dc-r-count">${users.length}</span>`;
-      pill.addEventListener("click",()=>toggleReaction(msgId,em));
-      row.appendChild(pill);
-    });
-  }
-  async function toggleReaction(msgId,emoji){
-    if(!currentUserId){openAuth();return;}
-    const{data:ex}=await sb.from("reactions").select("id").eq("message_id",msgId).eq("user_id",currentUserId).eq("emoji",emoji).maybeSingle();
-    if(ex) await sb.from("reactions").delete().eq("message_id",msgId).eq("user_id",currentUserId).eq("emoji",emoji);
-    else   await sb.from("reactions").insert({message_id:msgId,user_id:currentUserId,emoji});
-    loadReactionsSingle(msgId);
-  }
-
-  /* ══════════════════════════════════════════════
-     TYPING
-  ══════════════════════════════════════════════ */
-  function renderTyping(){
-    const el=dcEl("dc-typing");
-    const users=Object.values(typingUsers);
-    if(!users.length){el.innerHTML="";return;}
-    const names=users.map(u=>u.username).join(", ");
-    const label=users.length===1?`<strong>${names}</strong> is typing…`:users.length<=3?`<strong>${names}</strong> are typing…`:`<strong>${users.length} people</strong> are typing…`;
-    el.innerHTML=`<div class="dc-typing-dots"><span></span><span></span><span></span></div><span style="font-size:13px;color:#949ba4;margin-left:6px;">${label}</span>`;
-  }
-
-  /* ══════════════════════════════════════════════
-     DELETE
-  ══════════════════════════════════════════════ */
-  async function deleteMessage(msgId){
-    if(!confirm("Delete this message?"))return;
-    if(activeRoom.type==="dm") await sb.from("dm_messages").delete().eq("id",msgId);
-    else await sb.from("messages").update({deleted_at:new Date().toISOString()}).eq("id",msgId);
-    msgElMap.get(String(msgId))?.remove();
-    msgElMap.delete(String(msgId));
-  }
-
-  /* ══════════════════════════════════════════════
-     FILE UPLOAD
-  ══════════════════════════════════════════════ */
-  dcEl("dc-attach-btn").addEventListener("click",()=>dcEl("dc-file-input").click());
-  dcEl("dc-file-input").addEventListener("change",e=>{
-    const file=e.target.files[0];if(!file)return;
-    pendingFile=file;
-    dcEl("dc-up-fname").textContent=file.name;
-    if(file.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>{dcEl("dc-up-thumb").innerHTML=`<img src="${ev.target.result}" style="max-height:40px;border-radius:4px;" />`;};r.readAsDataURL(file);}
-    else dcEl("dc-up-thumb").textContent="📎";
-    dcEl("dc-upload-preview").classList.add("show");
-    e.target.value="";
-  });
-  dcEl("dc-upload-cancel").addEventListener("click",clearUpload);
-  function clearUpload(){pendingFile=null;dcEl("dc-upload-preview").classList.remove("show");dcEl("dc-up-thumb").innerHTML="";dcEl("dc-up-fname").textContent="";}
-
-  async function uploadFile(file){
-    const ext=file.name.split(".").pop().toLowerCase();
-    const uid=currentUserId||"anon";
-    const path=`${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const prog=dcEl("dc-upload-progress"),bar=dcEl("dc-upload-progress-bar");
-    prog.classList.add("show");bar.style.width="40%";
-    const{error}=await sb.storage.from("chat-uploads").upload(path,file,{cacheControl:"3600",upsert:false});
-    bar.style.width="100%";setTimeout(()=>{prog.classList.remove("show");bar.style.width="0%";},500);
-    if(error){showToast("Upload failed: "+error.message,"error");return null;}
-    const{data:u}=sb.storage.from("chat-uploads").getPublicUrl(path);
-    return u?.publicUrl||null;
-  }
-
-  /* ══════════════════════════════════════════════
-     SEND MESSAGE
-  ══════════════════════════════════════════════ */
-  const textarea=dcEl("dc-textarea");
-  textarea.addEventListener("input",()=>{
-    textarea.style.height="auto";
-    textarea.style.height=Math.min(textarea.scrollHeight,200)+"px";
-    broadcastTyping();
-    handleInputPopups();
-  });
-
-  let typingDebounce;
-  function broadcastTyping(){
-    if(!currentUserId||!typingChannel)return;
-    clearTimeout(typingDebounce);
-    typingDebounce=setTimeout(()=>{
-      if(!currentProfile)return;
-      typingChannel.send({type:"broadcast",event:"typing",payload:{username:currentProfile.username,uid:currentUserId}});
-    },200);
-  }
-
-  async function sendMessage(){
-    if(isSending)return;
-    if(slowModeSeconds>0){
-      const elapsed=(Date.now()-lastSentTime)/1000;
-      if(elapsed<slowModeSeconds){showToast(`🐌 Slow mode — wait ${Math.ceil(slowModeSeconds-elapsed)}s`,"error");return;}
-    }
-    const text=textarea.value.trim();
-    if(!text&&!pendingFile)return;
-    const{data:{session}}=await sb.auth.getSession();
-    if(!session){openAuth();return;}
-    const p=currentProfile||await getProfile(session.user.id);
-    if(text.startsWith("/")){await runCommand(text,p);textarea.value="";textarea.style.height="auto";return;}
-    isSending=true;
-    try{
-      let fileUrl=null;
-      if(pendingFile){fileUrl=await uploadFile(pendingFile);if(fileUrl===null)return;clearUpload();}
-      const payload={user_id:session.user.id,username:p.username||session.user.email,avatar_url:p.avatar_url||null,tag:p.tag||null,role:p.role||"user",text:applyShortcodes(text),file_url:fileUrl};
-      if(replyingTo){payload.reply_to_id=replyingTo.id;payload.reply_to_username=replyingTo.username;payload.reply_to_text=(replyingTo.text||"").slice(0,100);replyingTo=null;dcEl("dc-reply-bar").classList.remove("show");}
-      if(activeRoom.type==="dm"){
-        payload.dm_id=activeRoom.id;
-        const{error}=await sb.from("dm_messages").insert(payload);
-        if(error){showToast("Error: "+error.message,"error");return;}
-        await sb.from("direct_messages").update({updated_at:new Date().toISOString()}).eq("id",activeRoom.id);
-      } else {
-        if(activeRoom.type==="channel") payload.channel_id=activeRoom.id;
-        if(activeRoom.type==="server")  payload.server_id=activeRoom.id;
-        const{error}=await sb.from("messages").insert(payload);
-        if(error){showToast("Error: "+error.message,"error");return;}
-      }
-      textarea.value="";textarea.style.height="auto";
-      lastSentTime=Date.now();
-      scrollBottom();
-    } finally{isSending=false;}
-  }
-
-  textarea.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}});
-
-  /* ══════════════════════════════════════════════
-     SLASH COMMANDS
-  ══════════════════════════════════════════════ */
-  const SLASH_COMMANDS=[
-    {cmd:"/me",args:"<action>",desc:"Action message",adminOnly:false,modAllowed:false},
-    {cmd:"/shrug",args:"",desc:"¯\\_(ツ)_/¯",adminOnly:false,modAllowed:false},
-    {cmd:"/tableflip",args:"",desc:"(╯°□°）╯︵ ┻━┻",adminOnly:false,modAllowed:false},
-    {cmd:"/lenny",args:"",desc:"( ͡° ͜ʖ ͡°)",adminOnly:false,modAllowed:false},
-    {cmd:"/clear",args:"",desc:"Clear local view",adminOnly:false,modAllowed:false},
-    {cmd:"/help",args:"",desc:"Show commands",adminOnly:false,modAllowed:false},
-    {cmd:"/warn",args:"<user> <msg>",desc:"Warn user",adminOnly:true,modAllowed:true},
-    {cmd:"/mute",args:"<user> <time> <s|m>",desc:"Mute user",adminOnly:true,modAllowed:true},
-    {cmd:"/promote",args:"<user>",desc:"Promote to mod",adminOnly:true,modAllowed:false},
-    {cmd:"/demote",args:"<user>",desc:"Demote to member",adminOnly:true,modAllowed:false},
-    {cmd:"/ban",args:"<user>",desc:"Ban user",adminOnly:true,modAllowed:false},
-    {cmd:"/announce",args:"<msg>",desc:"Broadcast announcement",adminOnly:true,modAllowed:false},
-    {cmd:"/slow",args:"<seconds>",desc:"Set slow mode",adminOnly:true,modAllowed:false},
-    {cmd:"/role",args:"<user> <role>",desc:"Set role",adminOnly:true,modAllowed:false},
-  ];
-
-  async function runCommand(text,profile){
-    const parts=text.trim().split(" "),cmd=parts[0].toLowerCase(),args=parts.slice(1);
-    const isAdmin=profile.role==="admin",isMod=profile.role==="mod"||isAdmin;
-    const cmd_def=SLASH_COMMANDS.find(c=>c.cmd===cmd);
-    if(!cmd_def){showToast("Unknown command. /help for list.","error");return;}
-    if(cmd_def.adminOnly&&!isAdmin&&!(isMod&&cmd_def.modAllowed)){showToast("❌ No permission.","error");return;}
-    if(cmd==="/me"){if(!args.length)return;const{data:{session}}=await sb.auth.getSession();await sb.from("messages").insert({user_id:session.user.id,username:profile.username,avatar_url:profile.avatar_url||null,role:profile.role||"user",text:`_${profile.username} ${args.join(" ")}_`,...(activeRoom.type==="channel"?{channel_id:activeRoom.id}:{})});return;}
-    if(cmd==="/shrug"){textarea.value="¯\\_(ツ)_/¯";return;}
-    if(cmd==="/tableflip"){textarea.value="(╯°□°）╯︵ ┻━┻";return;}
-    if(cmd==="/lenny"){textarea.value="( ͡° ͜ʖ ͡°)";return;}
-    if(cmd==="/clear"){dcEl("dc-chat-window").innerHTML="";msgElMap.clear();return;}
-    if(cmd==="/help"){const list=SLASH_COMMANDS.filter(c=>!c.adminOnly||isAdmin||(isMod&&c.modAllowed)).map(c=>`${c.cmd} ${c.args} — ${c.desc}`).join("\n");alert("Commands:\n\n"+list);return;}
-    if(cmd==="/announce"){const{data:{session}}=await sb.auth.getSession();await sb.from("messages").insert({user_id:session.user.id,username:profile.username,avatar_url:profile.avatar_url||null,role:profile.role,text:`📢 **${args.join(" ")}**`,...(activeRoom.type==="channel"?{channel_id:activeRoom.id}:{})});return;}
-    if(cmd==="/slow"){slowModeSeconds=parseInt(args[0])||0;showToast(slowModeSeconds?`🐌 Slow mode: ${slowModeSeconds}s`:"✅ Slow mode off",slowModeSeconds?"info":"success");return;}
-    if(cmd==="/promote"){await sb.from("profiles").update({role:"mod"}).eq("username",args[0]);showToast(`✅ Promoted ${args[0]} to mod`,"success");return;}
-    if(cmd==="/demote"){await sb.from("profiles").update({role:"user"}).eq("username",args[0]);showToast(`✅ Demoted ${args[0]}`,"success");return;}
-    if(cmd==="/ban"){await sb.from("profiles").update({banned:true}).eq("username",args[0]);showToast(`🚫 Banned ${args[0]}`,"error");return;}
-    if(cmd==="/role"){if(!args[0]||!args[1]){showToast("Usage: /role <user> <role>","error");return;}await sb.from("profiles").update({role:args[1].toLowerCase()}).eq("username",args[0]);showToast(`✅ Set ${args[0]}'s role to ${args[1]}`,"success");return;}
-    if(cmd==="/warn"){const warnMsg=args.slice(1).join(" ");await sb.from("messages").insert({user_id:"system",username:"System",avatar_url:null,tag:"warn",text:`⚠️ Warning to ${args[0]}: ${warnMsg} — by ${profile.username}`,role:"admin",...(activeRoom.type==="channel"?{channel_id:activeRoom.id}:{})});showToast(`⚠️ Warned ${args[0]}`);return;}
-    if(cmd==="/mute"){const dur=(args[2]||"s")==="m"?parseInt(args[1])*60000:parseInt(args[1])*1000;const until=new Date(Date.now()+dur).toISOString();await sb.from("profiles").update({muted_until:until}).eq("username",args[0]);showToast(`🔇 Muted ${args[0]}`);return;}
-  }
-
-  /* ══════════════════════════════════════════════
-     @MENTION + SLASH AUTOCOMPLETE
-  ══════════════════════════════════════════════ */
-  let mentionQuery=null,mentionStart=0,mentionSelIdx=0,slashSelIdx=0;
-  function registerUser(u){if(u&&!knownUsers.includes(u))knownUsers.push(u);}
-
-  function handleInputPopups(){
-    const val=textarea.value,pos=textarea.selectionStart;
-    if(val.startsWith("/")&&!val.includes(" ")){
-      slashSelIdx=0;showSlashPopup(val.slice(1));dcEl("dc-mention-popup").classList.remove("open");return;
-    }
-    dcEl("dc-slash-popup").classList.remove("open");
-    const before=val.slice(0,pos),atMatch=before.match(/@(\w*)$/);
-    if(atMatch){mentionQuery=atMatch[1];mentionStart=before.lastIndexOf("@");mentionSelIdx=0;showMentionPopup(mentionQuery);}
-    else{mentionQuery=null;dcEl("dc-mention-popup").classList.remove("open");}
-  }
-
-  function showMentionPopup(q){
-    const popup=dcEl("dc-mention-popup");
-    const matches=knownUsers.filter(u=>u.toLowerCase().startsWith(q.toLowerCase())).slice(0,8);
-    if(!matches.length){popup.classList.remove("open");return;}
-    popup.innerHTML=matches.map((u,i)=>`<div class="dc-mp-item${i===mentionSelIdx?" selected":""}" data-user="${u}"><div class="dc-mp-avatar">${u[0].toUpperCase()}</div><span>@${u}</span></div>`).join("");
-    popup.classList.add("open");
-    popup.querySelectorAll(".dc-mp-item").forEach(opt=>opt.addEventListener("mousedown",e=>{e.preventDefault();insertMention(opt.dataset.user);}));
-  }
-  function insertMention(u){const val=textarea.value;textarea.value=val.slice(0,mentionStart)+"@"+u+" "+val.slice(textarea.selectionStart);mentionQuery=null;dcEl("dc-mention-popup").classList.remove("open");textarea.focus();}
-
-  function showSlashPopup(q){
-    const popup=dcEl("dc-slash-popup");
-    const isAdmin=currentProfile?.role==="admin",isMod=currentProfile?.role==="mod"||isAdmin;
-    const show=SLASH_COMMANDS.filter(c=>{if(!c.adminOnly)return c.cmd.startsWith("/"+q);if(isAdmin)return c.cmd.startsWith("/"+q);if(isMod&&c.modAllowed)return c.cmd.startsWith("/"+q);return false;}).slice(0,8);
-    if(!show.length){popup.classList.remove("open");return;}
-    popup.innerHTML=show.map((c,i)=>`<div class="dc-mp-item${i===slashSelIdx?" selected":""}" data-cmd="${c.cmd}"><span class="dc-slash-cmd">${c.cmd} <small style="opacity:.5;font-weight:400;">${c.args}</small></span><span class="dc-slash-desc">${c.desc}</span></div>`).join("");
-    popup.classList.add("open");
-    popup.querySelectorAll(".dc-mp-item").forEach(opt=>opt.addEventListener("mousedown",e=>{e.preventDefault();textarea.value=opt.dataset.cmd+" ";popup.classList.remove("open");textarea.focus();}));
-  }
-
-  textarea.addEventListener("keydown",e=>{
-    const mp=dcEl("dc-mention-popup"),sp=dcEl("dc-slash-popup");
-    if(mp.classList.contains("open")){
-      const opts=mp.querySelectorAll(".dc-mp-item");
-      if(e.key==="ArrowDown"){e.preventDefault();mentionSelIdx=Math.min(mentionSelIdx+1,opts.length-1);showMentionPopup(mentionQuery);}
-      if(e.key==="ArrowUp"){e.preventDefault();mentionSelIdx=Math.max(mentionSelIdx-1,0);showMentionPopup(mentionQuery);}
-      if(e.key==="Tab"||e.key==="Enter"){e.preventDefault();const sel=mp.querySelector(".selected");if(sel)insertMention(sel.dataset.user);return;}
-      if(e.key==="Escape")mp.classList.remove("open");
-    }
-    if(sp.classList.contains("open")){
-      const opts=sp.querySelectorAll(".dc-mp-item");
-      if(e.key==="ArrowDown"){e.preventDefault();slashSelIdx=Math.min(slashSelIdx+1,opts.length-1);showSlashPopup(textarea.value.slice(1));}
-      if(e.key==="ArrowUp"){e.preventDefault();slashSelIdx=Math.max(slashSelIdx-1,0);showSlashPopup(textarea.value.slice(1));}
-      if(e.key==="Tab"){e.preventDefault();const sel=sp.querySelector(".selected");if(sel){textarea.value=sel.dataset.cmd+" ";sp.classList.remove("open");}}
-      if(e.key==="Escape")sp.classList.remove("open");
-    }
-  });
-
-  /* ══════════════════════════════════════════════
-     EMOJI PANEL
-  ══════════════════════════════════════════════ */
-  const emojiPanel=dcEl("dc-emoji-panel");
-  EMOJIS.forEach(em=>{
-    const b=document.createElement("button");b.className="dc-emoji-opt";b.textContent=em;
-    b.addEventListener("click",e=>{e.stopPropagation();const pos=textarea.selectionStart;textarea.value=textarea.value.slice(0,pos)+em+textarea.value.slice(pos);emojiPanel.classList.remove("open");textarea.focus();});
-    emojiPanel.appendChild(b);
-  });
-  dcEl("dc-emoji-btn").addEventListener("click",e=>{e.stopPropagation();emojiPanel.classList.toggle("open");});
-  document.addEventListener("click",()=>{emojiPanel.classList.remove("open");document.querySelectorAll(".dc-floating-picker").forEach(p=>p.remove());});
-
-  /* ══════════════════════════════════════════════
-     REPLY + UPLOAD DISMISS
-  ══════════════════════════════════════════════ */
-  dcEl("dc-reply-close").addEventListener("click",()=>{replyingTo=null;dcEl("dc-reply-bar").classList.remove("show");});
-
-  /* ══════════════════════════════════════════════
-     PROFILE POPUP
-  ══════════════════════════════════════════════ */
-  const profilePopup=dcEl("dc-profile-popup");
-  async function showProfilePopup(uid,anchor){
-    if(!uid)return;
-    const p=await getProfile(uid);
-    let email=p.email||"";
-    if(!email&&uid===currentUserId){const{data:{session}}=await sb.auth.getSession();email=session?.user?.email||"";}
-    dcEl("dc-pp-avatar").textContent=getInitials(p.username||"?");
-    dcEl("dc-pp-name").textContent=p.username||"Unknown";
-    dcEl("dc-pp-tag").textContent=email||"";
-    const dmBtn=dcEl("dc-pp-dm-btn");
-    dmBtn.style.display=uid===currentUserId?"none":"";
-    dmBtn.onclick=async()=>{
-      profilePopup.classList.remove("open");
-      if(!email){showToast("No email on record","error");return;}
-      dcEl("dc-dm-email").value=email;
-      await startDMByEmail(email);
-    };
-    const rect=anchor.getBoundingClientRect();
-    profilePopup.style.left=Math.min(rect.right+8,window.innerWidth-310)+"px";
-    profilePopup.style.top=Math.max(8,Math.min(rect.top,window.innerHeight-250))+"px";
-    profilePopup.classList.add("open");
-  }
-  document.addEventListener("click",e=>{if(!profilePopup.contains(e.target))profilePopup.classList.remove("open");});
-
-  /* ══════════════════════════════════════════════
-     MEMBERS PANEL
-  ══════════════════════════════════════════════ */
-  async function loadMembers(serverId){
-    const panel=dcEl("dc-members-list");panel.innerHTML="";
-    if(!serverId){panel.innerHTML=`<div class="dc-members-cat">ONLINE — 1</div>${buildMemberItem(currentProfile,currentUserId,true)}`;return;}
-    const{data}=await sb.from("server_members").select("user_id").eq("server_id",serverId);
-    if(!data?.length)return;
-    const profiles=await Promise.all(data.map(m=>getProfile(m.user_id)));
-    const online=profiles.filter(p=>p);
-    panel.innerHTML=`<div class="dc-members-cat">MEMBERS — ${online.length}</div>${online.map((p,i)=>buildMemberItem(p,data[i].user_id,true)).join("")}`;
-  }
-
-  function buildMemberItem(p,uid,online){
-    if(!p)return"";
-    return `<div class="dc-member-item" data-uid="${uid}">
-      <div class="dc-member-avatar-wrap">
-        <div class="dc-member-avatar">${p.avatar_url?`<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;" />`:`${getInitials(p.username)}`}</div>
-        <div class="dc-member-status ${online?"online":"offline"}"></div>
-      </div>
-      <span class="dc-member-name">${p.username||"Unknown"}${p.role&&p.role!=="user"?` <span class="dc-role-badge dc-role-${p.role}">${p.role}</span>`:""}</span>
-    </div>`;
-  }
-
-  dcEl("dc-members-list").addEventListener("click",e=>{
-    const item=e.target.closest(".dc-member-item");if(!item)return;
-    showProfilePopup(item.dataset.uid,item);
-  });
-
-  /* ── Toggle members panel ── */
-  dcEl("dc-tb-members").addEventListener("click",()=>{
-    membersVisible=!membersVisible;
-    dcEl("dc-members-panel").classList.toggle("hidden",!membersVisible);
-    dcEl("dc-tb-members").classList.toggle("active",membersVisible);
-  });
-
-  /* ══════════════════════════════════════════════
-     VOICE CHANNELS  (WebRTC mesh)
-  ══════════════════════════════════════════════ */
-  async function joinVoiceChannel(ch, server){
-    if(!currentUserId){openAuth();return;}
-    activeVoiceChannel=ch;
-    dcEl("dc-vc-name").textContent=ch.name;
-    dcEl("dc-main").classList.add("in-voice");
-    dcEl("dc-vc-participants").innerHTML="";
-
-    // Add self
-    addVoiceParticipant(currentProfile,currentUserId);
-
-    // Get mic
-    try{
-      micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    }catch(e){showToast("Microphone access denied","error");leaveVoiceChannel();return;}
-
-    // Subscribe to voice presence
-    const vcChan=sb.channel(`voice-${ch.id}`,{config:{presence:{key:currentUserId}}});
-    vcChan.on("presence",{event:"sync"},()=>{
-      const state=vcChan.presenceState();
-      dcEl("dc-vc-participants").innerHTML="";
-      Object.values(state).forEach(presences=>{
-        presences.forEach(async p=>{
-          const prof=await getProfile(p.uid||p.presence_ref);
-          addVoiceParticipant(prof,p.uid||p.presence_ref);
-        });
-      });
-      dcEl("dc-vc-sub").textContent=`${Object.keys(state).length} participant${Object.keys(state).length!==1?"s":""}`;
-    }).subscribe(async status=>{
-      if(status==="SUBSCRIBED"){
-        await vcChan.track({uid:currentUserId,username:currentProfile?.username||"Unknown"});
-      }
-    });
-    window._vcChan=vcChan;
-
-    showToast(`🔊 Joined ${ch.name}`,"success");
-  }
-
-  function addVoiceParticipant(p,uid){
-    const existing=dcEl("dc-vc-participants").querySelector(`[data-uid="${uid}"]`);
-    if(existing)return;
-    const div=document.createElement("div");div.className="dc-voice-participant";div.dataset.uid=uid;
-    div.innerHTML=`<div class="dc-vp-avatar">${p?.avatar_url?`<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;" />`:getInitials(p?.username||"?")}</div><span class="dc-vp-name">${p?.username||"Unknown"}</span><div class="dc-vp-icons">🎙</div>`;
-    dcEl("dc-vc-participants").appendChild(div);
-  }
-
-  function leaveVoiceChannel(){
-    if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}
-    if(window._vcChan){sb.removeChannel(window._vcChan);window._vcChan=null;}
-    Object.values(peerConnections).forEach(pc=>pc.close());peerConnections={};
-    activeVoiceChannel=null;
-    dcEl("dc-main").classList.remove("in-voice");
-    showToast("Left voice channel");
-  }
-
-  dcEl("dc-vc-leave").addEventListener("click",leaveVoiceChannel);
-  dcEl("dc-vc-mic").addEventListener("click",()=>{
-    isMuted=!isMuted;
-    if(micStream)micStream.getAudioTracks().forEach(t=>t.enabled=!isMuted);
-    dcEl("dc-vc-mic").textContent=isMuted?"🔇":"🎙";
-    dcEl("dc-vc-mic").classList.toggle("muted",isMuted);
-  });
-  dcEl("dc-vc-screen").addEventListener("click",async()=>{
-    try{const stream=await navigator.mediaDevices.getDisplayMedia({video:true});showToast("📺 Sharing screen");stream.getTracks()[0].addEventListener("ended",()=>showToast("Screen share ended"));}
-    catch(e){showToast("Screen share cancelled");}
-  });
-
-  /* ── User panel mic/deafen/settings ── */
-  dcEl("dc-up-mute").addEventListener("click",()=>{
-    isMuted=!isMuted;
-    if(micStream)micStream.getAudioTracks().forEach(t=>t.enabled=!isMuted);
-    dcEl("dc-up-mute").classList.toggle("muted",isMuted);
-    dcEl("dc-up-mute").textContent=isMuted?"🔇":"🎙";
-    showToast(isMuted?"🔇 Muted":"🎙 Unmuted");
-  });
-  dcEl("dc-up-deafen").addEventListener("click",()=>{
-    isDeafened=!isDeafened;
-    dcEl("dc-up-deafen").classList.toggle("muted",isDeafened);
-    dcEl("dc-up-deafen").textContent=isDeafened?"🔈":"🎧";
-    showToast(isDeafened?"🔈 Deafened":"🎧 Undeafened");
-  });
-  dcEl("dc-up-settings").addEventListener("click",openUserSettings);
-
-  /* ══════════════════════════════════════════════
-     CHANNEL MANAGEMENT MODALS
-  ══════════════════════════════════════════════ */
-  function openAddChannelModal(type,serverId){
-    window._addChServerId=serverId;window._addChType=type;
-    dcEl("dc-ac-title").textContent=type==="voice"?"Create Voice Channel":"Create Text Channel";
-    dcEl("dc-ac-name").value="";dcEl("dc-ac-error").textContent="";
-    document.querySelector("[name='dc-ac-type'][value='"+type+"']").checked=true;
-    dcEl("dc-add-channel-modal").classList.add("open");
-  }
-  dcEl("dc-ac-cancel").addEventListener("click",()=>dcEl("dc-add-channel-modal").classList.remove("open"));
-  dcEl("dc-ac-create").addEventListener("click",async()=>{
-    const name=dcEl("dc-ac-name").value.trim().toLowerCase().replace(/\s+/g,"-");
-    if(!name){dcEl("dc-ac-error").textContent="Name required.";return;}
-    const type=document.querySelector("[name='dc-ac-type']:checked").value;
-    const{error}=await sb.from("channels").insert({name,server_id:window._addChServerId,is_public:true,type});
-    if(error){dcEl("dc-ac-error").textContent=error.message;return;}
-    dcEl("dc-add-channel-modal").classList.remove("open");
-    const{data:s}=await sb.from("servers").select("*").eq("id",window._addChServerId).single();
-    if(s) await loadChannels(s);
-    showToast(`✅ #${name} created`,"success");
-  });
-
-  async function deleteChannel(chId,server){
-    if(!confirm("Delete this channel?"))return;
-    await sb.from("channels").delete().eq("id",chId);
-    await loadChannels(server);
-    showToast("Channel deleted");
-  }
-
-  /* ══════════════════════════════════════════════
-     SERVER MANAGEMENT
-  ══════════════════════════════════════════════ */
-  dcEl("dc-mgmt-invite")?.addEventListener("click",()=>{
-    if(!activeServerId)return;
-    dcEl("dc-invite-link").value=`${location.origin}/chat?join=${activeServerId}`;
-    dcEl("dc-invite-modal").classList.add("open");
-  });
-  dcEl("dc-mgmt-settings")?.addEventListener("click",openServerSettings);
-  dcEl("dc-mgmt-members")?.addEventListener("click",()=>{openServerSettings();switchSsTab("members");});
-  dcEl("dc-mgmt-roles")?.addEventListener("click",()=>{openServerSettings();switchSsTab("roles");});
-  dcEl("dc-mgmt-channels")?.addEventListener("click",()=>dcEl("dc-add-channel-modal").classList.add("open"));
-  dcEl("dc-mgmt-delete")?.addEventListener("click",()=>{openServerSettings();switchSsTab("danger");});
-
-  async function openServerSettings(){
-    if(!activeServerId)return;
-    const{data:s}=await sb.from("servers").select("*").eq("id",activeServerId).single();
-    if(!s)return;
-    dcEl("dc-ss-title").textContent=`${s.name} — Server Settings`;
-    dcEl("dc-ss-name").value=s.name;
-    dcEl("dc-ss-passcode").value="";
-    dcEl("dc-ss-error").textContent="";
-    await loadServerSettingsMembers(s.id);
-    dcEl("dc-server-settings-modal").classList.add("open");
-    switchSsTab("overview");
-  }
-
-  function switchSsTab(tab){
-    document.querySelectorAll(".dc-ss-tab").forEach(t=>{t.style.color=t.dataset.tab===tab?"#dbdee1":"#949ba4";});
-    document.querySelectorAll(".dc-ss-panel").forEach(p=>p.style.display="none");
-    dcEl(`dc-ss-panel-${tab}`).style.display="";
-  }
-  document.querySelectorAll(".dc-ss-tab").forEach(btn=>{
-    btn.addEventListener("click",()=>switchSsTab(btn.dataset.tab));
-  });
-
-  async function loadServerSettingsMembers(serverId){
-    const{data}=await sb.from("server_members").select("user_id").eq("server_id",serverId);
-    const list=dcEl("dc-ss-members-list");list.innerHTML="";
-    if(!data)return;
-    for(const m of data){
-      const p=await getProfile(m.user_id);
-      const div=document.createElement("div");
-      div.style.cssText="display:flex;align-items:center;gap:10px;padding:8px;border-radius:4px;";
-      div.innerHTML=`<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(120deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;">${getInitials(p.username)}</div><span style="flex:1;color:#dbdee1;font-size:14px;">${p.username||"Unknown"} <span style="color:#949ba4;font-size:12px;">${p.role||"user"}</span></span>${m.user_id!==currentUserId?`<button onclick="kickMember('${m.user_id}')" style="background:#ed4245;border:none;color:#fff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;">Kick</button>`:""}`;
-      list.appendChild(div);
-    }
-  }
-  window.kickMember=async(uid)=>{if(!confirm("Remove this member?"))return;await sb.from("server_members").delete().eq("user_id",uid).eq("server_id",activeServerId);const{data:s}=await sb.from("servers").select("*").eq("id",activeServerId).single();if(s)await loadServerSettingsMembers(s.id);showToast("Member removed");};
-
-  dcEl("dc-ss-save")?.addEventListener("click",async()=>{
-    const name=dcEl("dc-ss-name").value.trim(),passcode=dcEl("dc-ss-passcode").value.trim();
-    if(!name){dcEl("dc-ss-error").textContent="Name required.";return;}
-    const{error}=await sb.from("servers").update({name,passcode:passcode||null}).eq("id",activeServerId);
-    if(error){dcEl("dc-ss-error").textContent=error.message;return;}
-    dcEl("dc-server-settings-modal").classList.remove("open");
-    await loadCommunities();
-    showToast("✅ Server updated","success");
-  });
-  dcEl("dc-ss-delete")?.addEventListener("click",async()=>{
-    if(!confirm("Delete this server? This cannot be undone."))return;
-    await sb.from("channels").delete().eq("server_id",activeServerId);
-    await sb.from("server_members").delete().eq("server_id",activeServerId);
-    await sb.from("servers").delete().eq("id",activeServerId);
-    dcEl("dc-server-settings-modal").classList.remove("open");
-    await loadCommunities();
-    activeServerId=null;showDMPanel();
-    switchRoom({type:"public",id:"public",name:"general",icon:"🌐"});
-    showToast("Server deleted","error");
-  });
-  dcEl("dc-ss-leave")?.addEventListener("click",async()=>{
-    if(!confirm("Leave this server?"))return;
-    await sb.from("server_members").delete().eq("user_id",currentUserId).eq("server_id",activeServerId);
-    dcEl("dc-server-settings-modal").classList.remove("open");
-    await loadCommunities();
-    activeServerId=null;showDMPanel();
-    switchRoom({type:"public",id:"public",name:"general",icon:"🌐"});
-    showToast("Left server");
-  });
-  ["dc-ss-close","dc-ss-members-close","dc-ss-roles-close","dc-ss-danger-close"].forEach(id=>dcEl(id)?.addEventListener("click",()=>dcEl("dc-server-settings-modal").classList.remove("open")));
-
-  /* ══════════════════════════════════════════════
-     INVITE MODAL
-  ══════════════════════════════════════════════ */
-  dcEl("dc-invite-close").addEventListener("click",()=>dcEl("dc-invite-modal").classList.remove("open"));
-  dcEl("dc-invite-copy").addEventListener("click",()=>{
-    navigator.clipboard.writeText(dcEl("dc-invite-link").value).then(()=>showToast("✅ Link copied!","success"));
-  });
-
-  /* ══════════════════════════════════════════════
-     CREATE SERVER MODAL
-  ══════════════════════════════════════════════ */
-  dcEl("dc-cs-cancel").addEventListener("click",()=>dcEl("dc-create-server-modal").classList.remove("open"));
-  dcEl("dc-cs-create").addEventListener("click",async()=>{
-    const name=dcEl("dc-cs-name").value.trim(),passcode=dcEl("dc-cs-passcode").value.trim();
-    if(!name){dcEl("dc-cs-error").textContent="Name required.";return;}
-    const{data:server,error}=await sb.from("servers").insert({name,passcode:passcode||null,owner_id:currentUserId}).select().single();
-    if(error){dcEl("dc-cs-error").textContent=error.message;return;}
-    await sb.from("channels").insert({name:"general",server_id:server.id,is_public:true,type:"text"});
-    await sb.from("server_members").insert({server_id:server.id,user_id:currentUserId});
-    dcEl("dc-create-server-modal").classList.remove("open");
-    await loadCommunities();
-    await enterCommunity(server);
-    showToast(`✅ Created ${name}`,"success");
-  });
-
-  /* ══════════════════════════════════════════════
-     JOIN SERVER MODAL
-  ══════════════════════════════════════════════ */
-  dcEl("dc-js-cancel").addEventListener("click",()=>{dcEl("dc-join-server-modal").classList.remove("open");joinPending=null;});
-  dcEl("dc-js-join").addEventListener("click",async()=>{
-    if(!joinPending)return;
-    const pc=dcEl("dc-js-passcode").value.trim();
-    if(pc!==joinPending.passcode){dcEl("dc-js-error").textContent="Wrong passcode.";return;}
-    dcEl("dc-join-server-modal").classList.remove("open");
-    await joinAndEnter(joinPending);joinPending=null;
-  });
-  dcEl("dc-js-passcode").addEventListener("keydown",e=>{if(e.key==="Enter")dcEl("dc-js-join").click();});
-
-  /* ══════════════════════════════════════════════
-     DM MODAL
-  ══════════════════════════════════════════════ */
-  dcEl("dc-add-dm-btn").addEventListener("click",()=>{
-    if(!currentUserId){openAuth();return;}
-    dcEl("dc-dm-email").value="";dcEl("dc-dm-error").textContent="";
-    dcEl("dc-new-dm-modal").classList.add("open");
-  });
-  dcEl("dc-dm-cancel").addEventListener("click",()=>dcEl("dc-new-dm-modal").classList.remove("open"));
-  dcEl("dc-dm-start").addEventListener("click",async()=>await startDMByEmail(dcEl("dc-dm-email").value.trim()));
-  dcEl("dc-dm-email").addEventListener("keydown",e=>{if(e.key==="Enter")dcEl("dc-dm-start").click();});
-
-  /* ══════════════════════════════════════════════
-     BROWSE MODAL
-  ══════════════════════════════════════════════ */
-  dcEl("dc-browse-close").addEventListener("click",()=>dcEl("dc-browse-modal").classList.remove("open"));
-  dcEl("dc-browse-search").addEventListener("input",async()=>{
-    const q=dcEl("dc-browse-search").value.trim().toLowerCase();
-    renderBrowseList(q);
-  });
-  let _allServers=[];
-  async function openBrowseModal(){
-    if(!currentUserId){openAuth();return;}
-    const{data}=await sb.from("servers").select("*").order("name");
-    _allServers=data||[];
-    dcEl("dc-browse-search").value="";
-    renderBrowseList("");
-    dcEl("dc-browse-modal").classList.add("open");
-  }
-  function renderBrowseList(q){
-    const list=dcEl("dc-browse-list");list.innerHTML="";
-    const filtered=q?_allServers.filter(s=>s.name.toLowerCase().includes(q)):_allServers;
-    if(!filtered.length){list.innerHTML=`<div style="color:#949ba4;font-size:14px;padding:16px;text-align:center;">No communities found</div>`;return;}
-    filtered.forEach(s=>{
-      const div=document.createElement("div");
-      div.style.cssText="display:flex;align-items:center;gap:12px;padding:10px;border-radius:4px;cursor:pointer;transition:background .1s;";
-      div.innerHTML=`<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(120deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;">${s.name.slice(0,2).toUpperCase()}</div><div style="flex:1;"><div style="color:#f2f3f5;font-weight:700;">${s.name}</div><div style="color:#949ba4;font-size:12px;">${s.passcode?"🔒 Private":"🌐 Public"}</div></div><button style="padding:6px 14px;border-radius:4px;border:none;background:var(--a);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Join</button>`;
-      div.querySelector("button").addEventListener("click",()=>{dcEl("dc-browse-modal").classList.remove("open");handleCommunityClick(s);});
-      div.addEventListener("mouseenter",()=>div.style.background="#35373c");
-      div.addEventListener("mouseleave",()=>div.style.background="");
-      list.appendChild(div);
-    });
-  }
-
-  /* ══════════════════════════════════════════════
-     RAIL EVENTS
-  ══════════════════════════════════════════════ */
-  dcEl("rail-home").addEventListener("click",()=>{
-    showDMPanel();
-    setRailActive("rail-home");
-    // stay on current room or go public
-    if(activeRoom.type!=="dm") switchRoom({type:"public",id:"public",name:"general",icon:"🌐"});
-  });
-  dcEl("rail-public").addEventListener("click",()=>{
-    setRailActive("rail-public");
-    showDMPanel();
-    dcEl("dc-server-header-name").textContent="360 Chat";
-    switchRoom({type:"public",id:"public",name:"general",icon:"🌐"});
-  });
-  dcEl("rail-add").addEventListener("click",()=>{
-    if(!currentUserId){openAuth();return;}
-    dcEl("dc-cs-name").value="";dcEl("dc-cs-passcode").value="";dcEl("dc-cs-error").textContent="";
-    dcEl("dc-create-server-modal").classList.add("open");
-  });
-  dcEl("rail-explore").addEventListener("click",openBrowseModal);
-
-  /* ══════════════════════════════════════════════
-     AUTH
-  ══════════════════════════════════════════════ */
-  function openAuth(){
-    dcEl("dc-auth-popup").classList.add("open");
-    setTimeout(()=>dcEl("dc-auth-email").focus(),50);
-  }
-  async function doLogin(){
-    const email=dcEl("dc-auth-email").value.trim(),pass=dcEl("dc-auth-password").value;
-    dcEl("dc-auth-error").textContent="";
-    const{error}=await sb.auth.signInWithPassword({email,password:pass});
-    if(error){dcEl("dc-auth-error").textContent=error.message;return;}
-    dcEl("dc-auth-popup").classList.remove("open");
-    showToast("✅ Signed in","success");
-  }
-  dcEl("dc-auth-login-btn").addEventListener("click",doLogin);
-  dcEl("dc-auth-email").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin();});
-  dcEl("dc-auth-password").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin();});
-  dcEl("dc-auth-switch-signup").addEventListener("click",()=>{window.location.href="/signup?from="+encodeURIComponent(location.href);});
-  dcEl("dc-github-btn").addEventListener("click",async()=>{
-    await sb.auth.signInWithOAuth({provider:"github",options:{redirectTo:location.href}});
-  });
-  dcEl("dc-google-btn").addEventListener("click",async()=>{
-    await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.href}});
-  });
-
-  /* close modals on overlay click */
-  document.querySelectorAll(".dc-modal-overlay").forEach(overlay=>{
-    overlay.addEventListener("click",e=>{if(e.target===overlay)overlay.classList.remove("open");});
-  });
-  dcEl("dc-auth-popup").addEventListener("click",e=>{if(e.target===dcEl("dc-auth-popup"))dcEl("dc-auth-popup").classList.remove("open");});
-
-  /* ══════════════════════════════════════════════
-     USER SETTINGS
-  ══════════════════════════════════════════════ */
-  function openUserSettings(){
-    dcEl("dc-us-name").value=currentProfile?.username||"";
-    dcEl("dc-user-settings-modal").classList.add("open");
-  }
-  dcEl("dc-us-close").addEventListener("click",()=>dcEl("dc-user-settings-modal").classList.remove("open"));
-  dcEl("dc-us-save").addEventListener("click",async()=>{
-    const name=dcEl("dc-us-name").value.trim();
-    if(!name){showToast("Name required","error");return;}
-    await sb.from("profiles").update({username:name}).eq("id",currentUserId);
-    if(currentProfile)currentProfile.username=name;
-    dcEl("dc-up-name").textContent=name;
-    dcEl("dc-user-settings-modal").classList.remove("open");
-    showToast("✅ Profile updated","success");
-  });
-  dcEl("dc-us-signout").addEventListener("click",async()=>{
-    await sb.auth.signOut();
-    currentUserId=null;currentProfile=null;
-    dcEl("dc-up-name").textContent="Not signed in";dcEl("dc-up-avatar").textContent="?";
-    dcEl("dc-user-settings-modal").classList.remove("open");
-    showToast("Signed out");
-  });
-  document.querySelectorAll(".dc-theme-btn").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      document.body.className=document.body.className.replace(/theme-\w+/g,"");
-      document.body.classList.add("theme-"+btn.dataset.theme,"dark");
-      localStorage.setItem("360-theme",btn.dataset.theme);
-    });
-  });
-  const savedTheme=localStorage.getItem("360-theme");
-  if(savedTheme){document.body.classList.add("theme-"+savedTheme);}
-
-  /* ══════════════════════════════════════════════
-     TOPBAR ACTIONS
-  ══════════════════════════════════════════════ */
-  dcEl("dc-tb-notif")?.addEventListener("click",async()=>{
-    if(!("Notification" in window))return;
-    const p=await Notification.requestPermission();
-    if(p==="granted"){showToast("🔔 Notifications on","success");new Notification("360 Chat",{body:"You'll get notified for @mentions and DMs.",icon:"/favicon-32x32.png"});}
-    else showToast("Notifications blocked","error");
-  });
-
-  const dcTopSearch=dcEl("dc-topbar-search");
-  dcTopSearch.addEventListener("click",()=>{
-    const q=prompt("Search messages:");
-    if(!q)return;
-    const results=[...msgElMap.values()].filter(el=>el.querySelector(".dc-msg-content")?.textContent.toLowerCase().includes(q.toLowerCase()));
-    if(!results.length){showToast("No results found");return;}
-    results[0].scrollIntoView({behavior:"smooth",block:"center"});
-    results[0].style.background="rgba(88,101,242,.2)";setTimeout(()=>results[0].style.background="",2000);
-    showToast(`Found ${results.length} result${results.length!==1?"s":""}`);
-  });
-
-  dcEl("dc-tb-inbox").addEventListener("click",()=>showToast("Inbox coming soon!"));
-  dcEl("dc-tb-threads").addEventListener("click",()=>showToast("Threads coming soon!"));
-  dcEl("dc-tb-help").addEventListener("click",()=>{window.open("https://360-search.com","_blank");});
-
-  /* ══════════════════════════════════════════════
-     LIGHTBOX
-  ══════════════════════════════════════════════ */
-  dcEl("dc-lightbox").addEventListener("click",()=>dcEl("dc-lightbox").classList.remove("open"));
-
-  /* ══════════════════════════════════════════════
-     TRANSLATE
-  ══════════════════════════════════════════════ */
-  const translateCache={};
-  async function translateText(text,lang){
-    const key=`${lang}:${text}`;if(translateCache[key])return translateCache[key];
-    try{const res=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${lang}`);const d=await res.json();const t=d?.responseData?.translatedText;if(!t||t===text)return null;translateCache[key]=t;return t;}catch{return null;}
-  }
-  async function maybeTranslate(el,text){
-    const lang=dcEl("dc-translate-lang")?.value;if(!lang||!text||text.trim().length<3)return;
-    const tr=await translateText(text,lang);if(!tr)return;
-    if(el.querySelector(".dc-msg-tr"))return;
-    const pill=document.createElement("div");pill.className="dc-msg-tr";pill.style.cssText="font-size:12px;color:#949ba4;margin-top:3px;font-style:italic;";pill.textContent="⟳ "+tr;
-    el.querySelector(".dc-msg-content")?.after(pill);
-  }
-  dcEl("dc-translate-lang")?.addEventListener("change",()=>{
-    const lang=dcEl("dc-translate-lang").value;
-    document.querySelectorAll(".dc-msg-tr").forEach(el=>el.remove());
-    if(lang) msgElMap.forEach((el,_)=>{const tc=el.querySelector(".dc-msg-content");if(tc)maybeTranslate(el,tc.textContent);});
-  });
-
-  /* ══════════════════════════════════════════════
-     UNREAD BADGES
-  ══════════════════════════════════════════════ */
-  function getRoomKey(room){return`${room.type}:${room.id}`;}
-  function renderUnreadBadge(room,count){
-    let railEl=null;
-    if(room.type==="public") railEl=dcEl("rail-public");
-    else if(room.serverId)   railEl=document.querySelector(`#dc-rail-communities [data-server-id="${room.serverId}"]`);
-    const chEl=document.querySelector(`[data-channel-id="${room.id}"]`)||document.querySelector(`[data-dm-id="${room.id}"]`);
-    [railEl,chEl].forEach(el=>{
-      if(!el)return;
-      el.querySelector(".dc-unread-badge")?.remove();
-      if(count>0){const b=document.createElement("div");b.className="dc-unread-badge";b.textContent=count>99?"99+":String(count);el.appendChild(b);}
-    });
-  }
-  async function markRoomRead(room){
-    if(!currentUserId)return;
-    const key=getRoomKey(room);unreadCounts[key]=0;renderUnreadBadge(room,0);
-    try{await sb.from("last_read").upsert({user_id:currentUserId,room_type:room.type,room_id:String(room.id),last_read_at:new Date().toISOString()},{onConflict:"user_id,room_type,room_id"});}catch(e){}
-  }
-
-  /* ══════════════════════════════════════════════
-     PUSH NOTIFICATIONS
-  ══════════════════════════════════════════════ */
-  function maybePushNotif(msg){
-    if(Notification?.permission!=="granted"||document.hasFocus())return;
-    const isMe=currentProfile&&new RegExp("@"+currentProfile.username+"\\b","i").test(msg.text||"");
-    const isDM=activeRoom.type==="dm";
-    if(!isMe&&!isDM)return;
-    new Notification(isDM?`DM from ${msg.username}`:`${msg.username} mentioned you`,{body:(msg.text||"📎 file").slice(0,100),icon:msg.avatar_url||"/favicon-32x32.png"});
-  }
-
-  /* ══════════════════════════════════════════════
-     SCROLL
-  ══════════════════════════════════════════════ */
-  function scrollBottom(){requestAnimationFrame(()=>{requestAnimationFrame(()=>{const w=dcEl("dc-messages");w.scrollTop=w.scrollHeight;});});}
-
-  /* ══════════════════════════════════════════════
-     PRESENCE
-  ══════════════════════════════════════════════ */
-  function startPresence(){
-    if(!currentUserId||!currentProfile)return;
-    try{
-      const ch=sb.channel("presence-global",{config:{presence:{key:currentUserId}}});
-      ch.on("presence",{event:"sync"},()=>{
-        const s=ch.presenceState();
-        const count=Object.keys(s).length;
-        // could show online count somewhere
-      }).subscribe(async status=>{
-        if(status==="SUBSCRIBED") await ch.track({user_id:currentUserId,username:currentProfile.username,online_at:new Date().toISOString()});
-      });
-    }catch(e){console.warn("Presence error:",e);}
-  }
-
-  /* ══════════════════════════════════════════════
-     INIT
-  ══════════════════════════════════════════════ */
-  waitForSb(async()=>{
-    const{data:{session}}=await sb.auth.getSession();
-    currentUserId=session?.user?.id||null;
-    if(currentUserId) currentProfile=await getProfile(currentUserId);
-    updateUserPanel();
-    await loadCommunities();
-    await loadDMs();
-    showDMPanel();
-    switchRoom({type:"public",id:"public",name:"general",icon:"🌐"});
-    loadMembers(null);
-    startPresence();
-
-    sb.auth.onAuthStateChange(async(_,sess)=>{
-      currentUserId=sess?.user?.id||null;
-      currentProfile=currentUserId?await getProfile(currentUserId):null;
-      updateUserPanel();
-      loadDMs();
-      loadCommunities();
-      startPresence();
-    });
-
-    // global reactions subscription
-    sb.channel("rxn-global").on("postgres_changes",{event:"*",schema:"public",table:"reactions"},p=>{
-      const mid=p.new?.message_id||p.old?.message_id;
-      if(mid&&document.getElementById(`dc-reactions-${mid}`)) loadReactionsSingle(mid);
-    }).subscribe();
-  });
-
-  function updateUserPanel(){
-    if(!currentProfile){
-      dcEl("dc-up-name").textContent="Not signed in";
-      dcEl("dc-up-avatar").textContent="?";
-      dcEl("dc-up-tag").textContent="";
-      dcEl("dc-up-status").className="dc-up-status";
-      return;
-    }
-    dcEl("dc-up-name").textContent=currentProfile.username||"Unknown";
-    dcEl("dc-up-avatar").textContent=getInitials(currentProfile.username||"?");
-    if(currentProfile.avatar_url) dcEl("dc-up-avatar").innerHTML=`<img src="${currentProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
-    dcEl("dc-up-tag").textContent="#"+((currentProfile.tag)||"0001");
-    dcEl("dc-up-status").className="dc-up-status online";
-    dcEl("dc-up-avatar").style.cursor="pointer";
-    dcEl("dc-up-avatar").addEventListener("click",openUserSettings);
-  }
-  </script>
-
-  <script src="/assets/js/wide.js"></script>
-  <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"ff0a2d9a55154fa7bec0287a68d6f56f","r":1}' crossorigin="anonymous"></script>
+</div>
+
+<audio id="clickSound" src="../click-sound.mp3" preload="auto"></audio>
+<audio id="notifSound" src="../click-sound.mp3" preload="auto"></audio>
+<script src="/assets/js/main.js"></script>
+<script src="/assets/js/wide.js"></script>
+<script src="/assets/js/cookie.js"></script>
+<script src="/assets/js/cursor.js"></script>
+<script src="/assets/js/chat.js"></script>
 </body>
 </html>
