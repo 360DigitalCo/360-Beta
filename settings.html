@@ -830,8 +830,9 @@
     document.getElementById('confirmSignOutBtn').onclick = async () => {
       const btn = document.getElementById('confirmSignOutBtn');
       btn.disabled = true; btn.textContent = 'Signing out…';
+      sessionStorage.removeItem('360_auth_redirect');
       await sb.auth.signOut();
-      location.href = '/account?signout&from=logout';
+      location.href = '/';
     };
   }
 
