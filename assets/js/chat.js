@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════
-   360 Chat — Discord Mode  v3.0
+   360 Chat — Discord Mode  v3.1
    Three-panel layout: server rail → channel list → chat
    Features: servers, channels (with categories), DMs,
    threads, pins, members panel, reactions, @mentions,
@@ -7,6 +7,9 @@
    badges, push notifications, profanity filter,
    auto-translate, context-menu, right-click reactions.
 ════════════════════════════════════════════════════════ */
+
+// Prevent main.js from injecting its own user-chip (chat has its own rail user widget)
+window.SKIP_AUTH_CHIP = true;
 
 const sb = supabaseClient;
 
@@ -358,11 +361,19 @@ function switchRoom(room){
     .on("broadcast",{event:"typing"},p=>{const{username,uid}=p.payload;if(uid===currentUserId)return;typingUsers[uid]={username};renderTyping();clearTimeout(typingTimeouts[uid]);typingTimeouts[uid]=setTimeout(()=>{delete typingUsers[uid];renderTyping();},2500);})
     .subscribe();
 
+  // Notify the notification system that we switched rooms (clears unread badge for this room)
+  window.ChatNotif?.onRoomSwitch(room);
+
   loadHistory();markRoomRead(room);
   document.getElementById("dcSidebar")?.classList.remove("mobile-open");
 }
 
-function onIncoming(msg){renderMessage(msg,true);trackUnread(msg);maybePushNotif(msg);}
+function onIncoming(msg){
+  renderMessage(msg,true);
+  trackUnread(msg);
+  // Delegate push notifications and badge updates to notifications.js
+  window.ChatNotif?.onMessage(msg,activeRoom,currentUserId);
+}
 
 /* ══════════════════════════════════════════════════════
    HISTORY
@@ -527,7 +538,10 @@ function renderText(raw){
   t=t.replace(/```([\s\S]*?)```/g,"<pre>$1</pre>");
   t=t.replace(/@(\w+)/g,(m,name)=>{
     const isMe=currentProfile&&name.toLowerCase()===(currentProfile.username||"").toLowerCase();
-    return `<span style="color:var(--a);background:rgba(59,130,246,.12);border-radius:3px;padding:0 3px;font-weight:600;">${m}</span>`;
+    const style=isMe
+      ?"color:#fbbf24;background:rgba(251,191,36,.18);border-radius:3px;padding:0 3px;font-weight:700;"
+      :"color:var(--a);background:rgba(59,130,246,.12);border-radius:3px;padding:0 3px;font-weight:600;";
+    return `<span style="${style}">${m}</span>`;
   });
   t=t.replace(/https?:\/\/[^\s<>"]+/g,url=>`<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
   return t;
@@ -1032,6 +1046,36 @@ function openLightbox(src){document.getElementById("lightbox-img").src=src;docum
 document.getElementById("lightbox").onclick=e=>{if(e.target===e.currentTarget)document.getElementById("lightbox").classList.add("hidden");};
 document.getElementById("lightbox-close").onclick=()=>document.getElementById("lightbox").classList.add("hidden");
 
+// Mobile sidebar toggle (hamburger in the rail)
+document.getElementById("sidebarToggle")?.addEventListener("click",()=>{
+  document.getElementById("dcSidebar").classList.toggle("mobile-open");
+});
+
+// Server settings menu button — open edit modal if user owns the server
+document.getElementById("sb-server-menu")?.addEventListener("click",async()=>{
+  if(!activeRoom.serverId||!currentUserId)return;
+  const{data:server}=await sb.from("servers").select("*").eq("id",activeRoom.serverId).maybeSingle();
+  if(server&&(server.owner_id===currentUserId||currentProfile?.role==="admin")){
+    openEditServerModal(server);
+  }else{
+    showToast("Only the server owner can edit settings.");
+  }
+});
+
+// joinModal cancel/join buttons (legacy fallback — passcode gate handles inline)
+document.getElementById("jm-cancel")?.addEventListener("click",()=>closeModal("joinModal"));
+document.getElementById("jm-join")?.addEventListener("click",async()=>{
+  const pass=document.getElementById("jm-pass")?.value.trim();
+  const err=document.getElementById("jm-err");
+  const serverId=document.getElementById("jm-join")?.dataset.serverId;
+  if(!serverId)return;
+  const{data:server}=await sb.from("servers").select("*").eq("id",serverId).maybeSingle();
+  if(!server){if(err)err.textContent="Server not found.";return;}
+  if(server.passcode&&pass!==server.passcode){if(err)err.textContent="Wrong passcode.";return;}
+  closeModal("joinModal");
+  await joinServer(server.id);await enterServer(server);
+});
+
 /* ══════════════════════════════════════════════════════
    PRESENCE + NOTIFICATIONS
 ══════════════════════════════════════════════════════ */
@@ -1041,16 +1085,6 @@ function startPresence(){
   presenceChan
     .on("presence",{event:"sync"},()=>{document.getElementById("onlineCount").textContent=Object.keys(presenceChan.presenceState()).length;})
     .subscribe(async s=>{if(s==="SUBSCRIBED")await presenceChan.track({uid:currentUserId,username:currentProfile?.username});});
-}
-
-let notifEnabled=Notification?.permission==="granted";
-async function maybePushNotif(msg){
-  if(!notifEnabled||document.hasFocus())return;
-  const dm=activeRoom.type==="dm";const me=currentProfile;
-  const mentioned=me&&new RegExp("@"+me.username+"\\b","i").test(msg.text||"");
-  if(!dm&&!mentioned)return;
-  const n=new Notification(dm?`DM from ${msg.username}`:`${msg.username} mentioned you`,{body:(msg.text||"📎 file").slice(0,100),icon:msg.avatar_url||"../favicon-32x32.png",tag:"360-"+msg.id,renotify:true});
-  n.onclick=()=>{window.focus();n.close();};
 }
 
 function trackUnread(msg){
@@ -1109,6 +1143,8 @@ function updateUserChip(){
     await buildRail();
     await buildSidebar(null);
     switchRoom({type:"public",id:"public",name:"general",icon:"#",serverName:"360 Chat",serverId:null});
+    // Sync notification system with initial room (notifications.js loaded after us, so defer briefly)
+    setTimeout(()=>window.ChatNotif?.onRoomSwitch(activeRoom),0);
     startPresence();
     sb.auth.onAuthStateChange(async(_,session)=>{
       currentUserId=session?.user?.id||null;
