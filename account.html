@@ -458,9 +458,23 @@
     const qs         = location.search.slice(1);
     const param      = qs.split('&')[0].toLowerCase();
     const _fromParam = qs.match(/(?:^|&)from=([^&]*)/i);
-    const _redirectTo = _fromParam ? decodeURIComponent(_fromParam[1]) || '/' : '/';
+    const _redirectTo = _fromParam ? decodeURIComponent(_fromParam[1]) || '/' : '/';;
     const isLogout   = (param === 'signout' || param === 'login') && qs.includes('from=logout');
     const content    = document.getElementById('acContent');
+
+    // ── Persist redirect target so email-confirm links can still bounce back ──
+    // Written whenever the user arrives with a real ?from= destination.
+    // auth-fix.js (and our onAuthStateChange below) reads this.
+    if (_redirectTo && _redirectTo !== '/' && !isLogout) {
+      sessionStorage.setItem('360_auth_redirect', _redirectTo);
+    }
+
+    // Helper: get the best destination — URL param first, sessionStorage fallback
+    function getBestRedirect() {
+      if (_redirectTo && _redirectTo !== '/') return _redirectTo;
+      const ss = sessionStorage.getItem('360_auth_redirect');
+      return (ss && !ss.includes('/account')) ? ss : '/';
+    }
 
     const _signInBtn  = document.getElementById('signInBtn');
     const _signUpBtn  = document.getElementById('signUpBtn');
@@ -612,7 +626,11 @@
       }
       const { error } = await sb.auth.signInWithPassword({ email:emailToUse, password:passVal });
       if(error){ setMsg(msg,error.message,'err'); btn.disabled=false; btn.textContent='Sign In'; }
-      else { setMsg(msg,'Signed in! Redirecting…','ok'); setTimeout(()=>location.replace(_redirectTo), 600); }
+      else {
+        sessionStorage.removeItem('360_auth_redirect');
+        setMsg(msg,'Signed in! Redirecting…','ok');
+        setTimeout(()=>location.replace(getBestRedirect()), 600);
+      }
     }
 
     /* ═══════════════════════════════════════════════
@@ -860,8 +878,18 @@
         },{ onConflict:'id' });
         if(upsertErr) console.warn('Profile upsert failed (non-fatal):', upsertErr.message);
       }
-      setMsg(msg,'360ID created! Check your email to confirm, then sign in.','ok');
-      btn.textContent='Check your email ✓';
+      // If the session already exists (email confirmation disabled in project), redirect now
+      const { data: { session: immediateSession } } = await sb.auth.getSession();
+      if(immediateSession){
+        sessionStorage.removeItem('360_auth_redirect');
+        setMsg(msg,'Account created! Redirecting…','ok');
+        setTimeout(()=>location.replace(getBestRedirect()), 800);
+      } else {
+        // Confirmation email sent — keep the redirect saved in sessionStorage so the
+        // email-confirm link can bounce them back after they click it
+        setMsg(msg,'360ID created! Check your email to confirm your account.','ok');
+        btn.textContent='Check your email ✓';
+      }
     }
 
     /* ═══════════════════════════════════════════════
@@ -991,9 +1019,11 @@
         // If profile setup is incomplete, show completion flow; otherwise redirect or show profile
         if(!profile?.username || (cameFromOAuth && !profile?.birthdate)){
           renderCompleteProfile(session.user, profile||{}, false);
-        } else if(_redirectTo && _redirectTo !== '/' && param==='signin'){
-          // Came here via ?signin&from=X — send them home
-          location.replace(_redirectTo);
+        } else if(param==='signin' || param==='signup') {
+          // Arrived here to authenticate — send them back where they came from
+          const dest = getBestRedirect();
+          sessionStorage.removeItem('360_auth_redirect');
+          location.replace(dest);
         } else {
           showProfile(session.user, profile);
         }
@@ -1007,9 +1037,10 @@
 
       // Listen for auth changes (e.g. email confirmation landing here)
       sb.auth.onAuthStateChange(async(event,sess)=>{
-        if(event==='SIGNED_IN'&&sess&&!session){
-          // User just confirmed email — redirect them
-          const dest = _redirectTo&&_redirectTo!=='/' ? _redirectTo : '/';
+        if(event==='SIGNED_IN' && sess && !session){
+          // User just confirmed email or signed in via magic link — redirect them back
+          const dest = getBestRedirect();
+          sessionStorage.removeItem('360_auth_redirect');
           location.replace(dest);
         }
       });
