@@ -255,7 +255,7 @@
   <div class="cursor-crosshair"></div>
   <div class="cursor-blob"></div>
 
-  <button class="back-btn" onclick="window.location.href='../'">← Back</button>
+  <button class="back-btn" onclick="history.length > 1 ? history.back() : window.location.href='../'">← Back</button>
   <div class="auth-top-right">
     <button id="signInBtn"  class="auth-btn">Sign In</button>
     <button id="signUpBtn"  class="auth-btn">Sign Up</button>
@@ -915,6 +915,7 @@
   </script>
   <audio id="clickSound" src="../click-sound.mp3" preload="auto"></audio>
   <script src="../main.js"></script>
+  <script src="/assets/js/auth-fix.js"></script>
   <script src="../cookie.js"></script>
   <script src="../cursor.js"></script>
 </body>

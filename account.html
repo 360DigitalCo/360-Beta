@@ -446,6 +446,7 @@
 
   <script>window.SKIP_AUTH_CHIP = true;</script>
   <script src="/assets/js/main.js"></script>
+  <script src="/assets/js/auth-fix.js"></script>
   <script src="/assets/js/wide.js"></script>
   <script src="/assets/js/cookie.js"></script>
   <script src="/assets/js/cursor.js"></script>
@@ -851,11 +852,14 @@
       });
       if(signUpErr){ setMsg(msg,signUpErr.message,'err'); btn.disabled=false; btn.textContent='Create 360ID'; return; }
       const userId = signUpData?.user?.id;
-      if(userId) await sb.from('profiles').upsert({
-        id:userId, username, email,
-        first_name:SU.firstName, last_name:SU.lastName||null, birthdate:SU.birthdate,
-        avatar_url: avatarUrl, avatar_style:'monogram', avatar_seed:SU.letter+'|'+SU.bg,
-      },{ onConflict:'id' });
+      if(userId){
+        const { error: upsertErr } = await sb.from('profiles').upsert({
+          id:userId, username, email,
+          first_name:SU.firstName, last_name:SU.lastName||null, birthdate:SU.birthdate,
+          avatar_url: avatarUrl, avatar_style:'monogram', avatar_seed:SU.letter+'|'+SU.bg,
+        },{ onConflict:'id' });
+        if(upsertErr) console.warn('Profile upsert failed (non-fatal):', upsertErr.message);
+      }
       setMsg(msg,'360ID created! Check your email to confirm, then sign in.','ok');
       btn.textContent='Check your email ✓';
     }
