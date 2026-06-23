@@ -158,7 +158,7 @@ async function buildUserChip(user) {
      if (!confirmed) return;
    
      await supabaseClient.auth.signOut();
-     location.href = "/signin";
+     location.href = "/account?signout&from=logout";
    });
 }
 
@@ -281,8 +281,8 @@ function closeAuth() {
   if (authError) authError.textContent = "";
 }
 
-if (signInBtn) signInBtn.onclick = () => location.href = "/signin?from=" + currentURL;
-if (signUpBtn) signUpBtn.onclick = () => location.href = "/signup?from=" + currentURL;
+if (signInBtn) signInBtn.onclick = () => location.href = "/account?signin&from=" + currentURL;
+if (signUpBtn) signUpBtn.onclick = () => location.href = "/account?signup&from=" + currentURL;
 if (authCloseBtn) authCloseBtn.onclick = closeAuth;
 
 if (authPopup) {
@@ -307,8 +307,11 @@ if (authLoginBtn) {
     const password = authPassword?.value.trim();
     if (!email || !password) { if (authError) authError.textContent = "Email and password required."; return; }
     const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) { if (authError) authError.textContent = error.message; }
-    else { closeAuth(); updateAuthUI(); }
+    if (error) {
+      if (authError) authError.textContent = error.message.includes("Email not confirmed")
+        ? "Please confirm your email first — check your inbox."
+        : error.message;
+    } else { closeAuth(); updateAuthUI(); }
   };
 }
 
