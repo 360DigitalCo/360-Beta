@@ -338,7 +338,7 @@ if (googleBtn) {
 if (signOutBtn) {
   signOutBtn.onclick = async () => {
     await supabaseClient.auth.signOut();
-    location.href = "/signin?from=" + currentURL;
+    location.href = "/account?signout&from=logout";
   };
 }
 
