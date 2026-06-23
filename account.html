@@ -546,7 +546,8 @@
 
     /* ─── OAuth ──────────────────────────────────── */
     function oAuth(provider){
-      const redirectUrl = location.origin+'/account?from='+encodeURIComponent(_redirectTo);
+      // After OAuth the browser returns to this URL; we then redirect to _redirectTo
+      const redirectUrl = location.origin+'/account?signin&from='+encodeURIComponent(_redirectTo);
       sb.auth.signInWithOAuth({ provider, options:{ redirectTo: redirectUrl, scopes: provider==='google'?'profile email':'' } });
     }
 
@@ -967,15 +968,31 @@
     /* ─── init ───────────────────────────────────── */
     (async()=>{
       if(isLogout){ showLogout(); return; }
+
+      // Handle email confirmation tokens in the URL hash (#access_token=…&type=signup)
+      if(location.hash.includes('access_token') || location.hash.includes('type=signup')){
+        // Supabase JS picks these up automatically; give it a tick then re-check session
+        await new Promise(r=>setTimeout(r,300));
+      }
+
       const { data:{session} } = await sb.auth.getSession();
       if(session){
         if(_signInBtn)  _signInBtn.style.display='none';
         if(_signUpBtn)  _signUpBtn.style.display='none';
         if(_signOutBtn) _signOutBtn.style.display='inline-block';
+
         const { data:profile } = await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
         const cameFromOAuth = session.user.app_metadata?.provider && session.user.app_metadata.provider!=='email';
-        if(cameFromOAuth && profile && !profile.birthdate) renderCompleteProfile(session.user, profile, false);
-        else showProfile(session.user, profile);
+
+        // If profile setup is incomplete, show completion flow; otherwise redirect or show profile
+        if(!profile?.username || (cameFromOAuth && !profile?.birthdate)){
+          renderCompleteProfile(session.user, profile||{}, false);
+        } else if(_redirectTo && _redirectTo !== '/' && param==='signin'){
+          // Came here via ?signin&from=X — send them home
+          location.replace(_redirectTo);
+        } else {
+          showProfile(session.user, profile);
+        }
       } else {
         if(_signInBtn)  _signInBtn.style.display='inline-block';
         if(_signUpBtn)  _signUpBtn.style.display='inline-block';
@@ -983,6 +1000,15 @@
         if(param==='signup') renderSignUp();
         else renderSignIn();
       }
+
+      // Listen for auth changes (e.g. email confirmation landing here)
+      sb.auth.onAuthStateChange(async(event,sess)=>{
+        if(event==='SIGNED_IN'&&sess&&!session){
+          // User just confirmed email — redirect them
+          const dest = _redirectTo&&_redirectTo!=='/' ? _redirectTo : '/';
+          location.replace(dest);
+        }
+      });
     })();
   </script>
 </body>
