@@ -157,8 +157,10 @@ async function buildUserChip(user) {
      const confirmed = await confirmSignOut();
      if (!confirmed) return;
    
+     const returnTo = window.location.pathname + window.location.search;
      await supabaseClient.auth.signOut();
-     location.href = "/account?signout&from=logout";
+     // Return to the same page — auth gates will show sign-in prompt if needed
+     location.href = returnTo;
    });
 }
 
@@ -337,8 +339,9 @@ if (googleBtn) {
 
 if (signOutBtn) {
   signOutBtn.onclick = async () => {
+    const returnTo = window.location.pathname + window.location.search;
     await supabaseClient.auth.signOut();
-    location.href = "/account?signout&from=logout";
+    location.href = returnTo;
   };
 }
 
