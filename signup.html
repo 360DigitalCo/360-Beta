@@ -436,7 +436,11 @@
       if (signUpErr) { setMsg(suMsg, signUpErr.message, "err"); suBtn.disabled = false; suBtn.textContent = "Create Account"; return; }
 
       const userId = signUpData?.user?.id;
-      if (userId) await sb.from("profiles").upsert({ id: userId, username, email }, { onConflict: "id" });
+      if (userId) await sb.from("profiles").upsert({
+        id: userId, username, email,
+        first_name: document.getElementById("suFirst")?.value?.trim() || "",
+        last_name:  document.getElementById("suLast")?.value?.trim()  || null,
+      }, { onConflict: "id" });
 
       setMsg(suMsg, 'Account created! Check your email to confirm, then <a href="/signin" style="color:var(--a)">sign in</a>.', "ok");
       suBtn.textContent = "Check your email ✓";
