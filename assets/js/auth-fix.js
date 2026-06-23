@@ -20,6 +20,13 @@
     return encodeURIComponent(window.location.pathname + window.location.search);
   }
 
+  // Always persist the current page as the redirect target so email-confirm links
+  // and OAuth callbacks can always bounce back here, even across browser sessions.
+  const thisPage = window.location.pathname + window.location.search;
+  if (!thisPage.startsWith('/account') && !thisPage.startsWith('/signin') && !thisPage.startsWith('/signup')) {
+    sessionStorage.setItem('360_auth_redirect', thisPage);
+  }
+
   // Override the global openAuth used by sendMessage, chat, etc.
   window.openAuth = function(mode) {
     const dest = mode === "signup"
@@ -35,14 +42,14 @@
     popup.classList.add("hidden");
   }
 
-  // Also patch any inline auth buttons that might still be wired directly
+  // Patch any inline auth buttons that might still be wired directly
   const loginBtn  = document.getElementById("auth-login-btn");
   const signupBtn = document.getElementById("auth-signup-btn");
   const closeBtn  = document.getElementById("auth-close-btn");
 
   if (loginBtn)  loginBtn.onclick  = () => window.openAuth("signin");
   if (signupBtn) signupBtn.onclick = () => window.openAuth("signup");
-  if (closeBtn)  closeBtn.onclick  = () => {}; // noop — popup is hidden
+  if (closeBtn)  closeBtn.onclick  = () => {};
 
   // Patch github/google OAuth buttons inside the popup
   const ghBtn = document.getElementById("github-login");
@@ -59,17 +66,5 @@
       options: { redirectTo: window.location.origin + "/account?signin&from=" + fromParam() }
     });
   };
-
-  // /account: redirect back after successful login
-  supabaseClient.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_IN" && session) {
-      const redirect = sessionStorage.getItem("360_auth_redirect");
-      if (redirect && !redirect.includes("/account")) {
-        sessionStorage.removeItem("360_auth_redirect");
-        // Small delay so auth state propagates
-        setTimeout(() => window.location.href = redirect, 300);
-      }
-    }
-  });
 
 })();
