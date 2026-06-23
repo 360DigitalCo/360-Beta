@@ -89,14 +89,40 @@ function closeAllPanels(){
 
 /* ── Profile cache ──────────────────────────────────── */
 async function getProfile(uid){
-  if(!uid)return{username:"Unknown",avatar_url:null,role:"user"};
+  if(!uid)return{username:"Unknown",avatar_url:null,role:"user",banned:false,muted_until:null,warn_count:0};
   if(profileCache[uid])return profileCache[uid];
   try{
-    const{data}=await sb.from("profiles").select("username,avatar_url,role,tag,email,first_name,last_name").eq("id",uid).single();
-    const p=data||{username:"Unknown",avatar_url:null,role:"user"};
+    const{data}=await sb.from("profiles").select("username,avatar_url,role,tag,email,first_name,last_name,banned,muted_until,warn_count").eq("id",uid).single();
+    const p=data||{username:"Unknown",avatar_url:null,role:"user",banned:false,muted_until:null,warn_count:0};
     if(!p.username)(p.username=[p.first_name,p.last_name].filter(Boolean).join(" ")||"Unknown");
+    p.warn_count=p.warn_count||0;
     profileCache[uid]=p;return p;
-  }catch{return{username:"Unknown",avatar_url:null,role:"user"};}
+  }catch{return{username:"Unknown",avatar_url:null,role:"user",banned:false,muted_until:null,warn_count:0};}
+}
+
+/* ── Automod helpers ─────────────────────────────────── */
+async function logAutomod(userId,username,action,reason,expiresAt=null){
+  try{
+    await sb.from("automod_log").insert({user_id:userId,username,action,reason,expires_at:expiresAt});
+  }catch(e){console.warn("automod_log write failed",e);}
+}
+
+function isMuted(profile){
+  if(!profile?.muted_until)return false;
+  return new Date(profile.muted_until)>new Date();
+}
+
+function muteExpiryText(profile){
+  if(!profile?.muted_until)return"";
+  const ms=new Date(profile.muted_until)-new Date();
+  if(ms<=0)return"";
+  const m=Math.ceil(ms/60000);
+  return m<60?`${m}m`:Math.ceil(m/60)+"h";
+}
+
+/* ── Mod-only command guard ──────────────────────────── */
+function requiresMod(profile){
+  return profile?.role==="admin"||profile?.role==="mod";
 }
 
 /* ── Avatar elements ────────────────────────────────── */
@@ -744,7 +770,14 @@ async function sendMessage(){
   if(slowModeSeconds>0){const el=(Date.now()-lastSentTime)/1000;if(el<slowModeSeconds){showToast(`🐌 Slow mode — wait ${Math.ceil(slowModeSeconds-el)}s`);return;}}
   const text=msgInput.value.trim();if(!text&&!pendingFile)return;
   const{data:{session}}=await sb.auth.getSession();if(!session){location.href="/account";return;}
-  const p=currentProfile||await getProfile(session.user.id);
+  // Always re-fetch own profile so ban/mute state is current
+  delete profileCache[session.user.id];
+  const p=await getProfile(session.user.id);
+  currentProfile=p;
+  // Enforce ban
+  if(p.banned){showToast("🚫 You have been banned from 360 Chat.");return;}
+  // Enforce mute
+  if(isMuted(p)){showToast(`🔇 You are muted for another ${muteExpiryText(p)}.`);return;}
   if(text.startsWith("/")){await runCommand(text,p);msgInput.value="";msgInput.style.height="auto";return;}
   isSending=true;document.getElementById("sendBtn").disabled=true;
   try{
@@ -769,18 +802,99 @@ async function deleteMsg(msgId){
    SLASH COMMANDS
 ══════════════════════════════════════════════════════ */
 const CMDS=[
-  {c:"/me",      fn:async(args,p,pay)=>{pay.text=`_${p.username} ${filterProfanity(args)}_`;await insertMsg(pay);}},
-  {c:"/shrug",   fn:async()=>{msgInput.value="¯\\_(ツ)_/¯";}},
-  {c:"/clear",   fn:async()=>{document.getElementById("dc-messages").innerHTML="";msgElMap.clear();}},
-  {c:"/help",    fn:async()=>{showToast(CMDS.map(c=>c.c).join("  ·  "),4000);}},
-  {c:"/warn",    fn:async(args,p,pay)=>{pay.text=`⚠️ Warning to ${args.split(" ")[0]}: ${args.split(" ").slice(1).join(" ")} — by ${p.username}`;await insertMsg(pay);}},
-  {c:"/slow",    fn:async(args)=>{slowModeSeconds=parseInt(args)||0;showToast(slowModeSeconds?`🐌 Slow mode: ${slowModeSeconds}s`:"✅ Slow mode off");}},
-  {c:"/promote", fn:async(args)=>{await sb.from("profiles").update({role:"mod"}).eq("username",args.trim());showToast("✅ Promoted "+args.trim());}},
-  {c:"/demote",  fn:async(args)=>{await sb.from("profiles").update({role:"user"}).eq("username",args.trim());showToast("✅ Demoted "+args.trim());}},
-  {c:"/ban",     fn:async(args)=>{await sb.from("profiles").update({banned:true}).eq("username",args.trim());showToast("🚫 Banned "+args.trim());}},
-  {c:"/unban",   fn:async(args)=>{await sb.from("profiles").update({banned:false}).eq("username",args.trim());showToast("✅ Unbanned "+args.trim());}},
-  {c:"/announce",fn:async(args,p,pay)=>{pay.text=`📢 **${args}**`;await insertMsg(pay);}},
-  {c:"/delete",  fn:async(args)=>{const id=parseInt(args);if(id)await deleteMsg(id);}},
+  // ── Anyone ──────────────────────────────────────────────
+  {c:"/me",      mod:false, fn:async(args,p,pay)=>{pay.text=`_${p.username} ${filterProfanity(args)}_`;await insertMsg(pay);}},
+  {c:"/shrug",   mod:false, fn:async()=>{msgInput.value="¯\\_(ツ)_/¯";}},
+  {c:"/help",    mod:false, fn:async(args,p)=>{
+    const all=CMDS.filter(c=>!c.mod||requiresMod(p));
+    showToast(all.map(c=>c.c).join("  ·  "),5000);
+  }},
+  // ── Mod / Admin only ────────────────────────────────────
+  {c:"/clear",   mod:true, fn:async()=>{document.getElementById("dc-messages").innerHTML="";msgElMap.clear();}},
+  {c:"/slow",    mod:true, fn:async(args)=>{slowModeSeconds=parseInt(args)||0;showToast(slowModeSeconds?`🐌 Slow mode: ${slowModeSeconds}s`:"✅ Slow mode off");}},
+  {c:"/warn",    mod:true, fn:async(args,p)=>{
+    const[target,...rest]=args.split(" ");const reason=rest.join(" ")||"No reason given";
+    if(!target){showToast("Usage: /warn <username> [reason]");return;}
+    const{data:tgt}=await sb.from("profiles").select("id,username,warn_count").eq("username",target.replace(/^@/,"")).maybeSingle();
+    if(!tgt){showToast("❌ User not found.");return;}
+    const newCount=(tgt.warn_count||0)+1;
+    await sb.from("profiles").update({warn_count:newCount}).eq("id",tgt.id);
+    // Auto-mute at 3 warnings (1 hour), auto-ban at 5
+    let extra="";
+    if(newCount>=5){
+      await sb.from("profiles").update({banned:true}).eq("id",tgt.id);
+      await logAutomod(tgt.id,tgt.username,"auto_ban",`${newCount} warnings — last: ${reason}`);
+      extra=" (auto-banned after 5 warnings)";
+    } else if(newCount>=3){
+      const muteUntil=new Date(Date.now()+60*60*1000).toISOString();
+      await sb.from("profiles").update({muted_until:muteUntil}).eq("id",tgt.id);
+      await logAutomod(tgt.id,tgt.username,"auto_mute","3 warnings reached",muteUntil);
+      extra=" (auto-muted 1h)";
+    }
+    await logAutomod(tgt.id,tgt.username,"warn",reason);
+    const pay={user_id:p.id||currentUserId,username:p.username,avatar_url:p.avatar_url,role:p.role};
+    pay.text=`⚠️ **Warning ${newCount}/5** to @${tgt.username}: ${reason}${extra} — by ${p.username}`;
+    await insertMsg(pay);
+    showToast(`⚠️ Warned ${tgt.username} (${newCount}/5)${extra}`);
+  }},
+  {c:"/mute",    mod:true, fn:async(args,p)=>{
+    const[target,mins,...rest]=args.split(" ");const reason=rest.join(" ")||"No reason given";
+    if(!target||!mins||isNaN(parseInt(mins))){showToast("Usage: /mute <username> <minutes> [reason]");return;}
+    const{data:tgt}=await sb.from("profiles").select("id,username").eq("username",target.replace(/^@/,"")).maybeSingle();
+    if(!tgt){showToast("❌ User not found.");return;}
+    const muteUntil=new Date(Date.now()+parseInt(mins)*60*1000).toISOString();
+    await sb.from("profiles").update({muted_until:muteUntil}).eq("id",tgt.id);
+    await logAutomod(tgt.id,tgt.username,"mute",`${mins}m — ${reason}`,muteUntil);
+    const pay={user_id:currentUserId,username:p.username,avatar_url:p.avatar_url,role:p.role};
+    pay.text=`🔇 @${tgt.username} muted for ${mins} minute(s): ${reason} — by ${p.username}`;
+    await insertMsg(pay);
+    showToast(`🔇 Muted ${tgt.username} for ${mins}m`);
+  }},
+  {c:"/unmute",  mod:true, fn:async(args,p)=>{
+    const target=args.trim().replace(/^@/,"");if(!target){showToast("Usage: /unmute <username>");return;}
+    const{data:tgt}=await sb.from("profiles").select("id,username").eq("username",target).maybeSingle();
+    if(!tgt){showToast("❌ User not found.");return;}
+    await sb.from("profiles").update({muted_until:null}).eq("id",tgt.id);
+    await logAutomod(tgt.id,tgt.username,"unmute",`by ${p.username}`);
+    showToast(`✅ Unmuted ${tgt.username}`);
+  }},
+  {c:"/ban",     mod:true, fn:async(args,p)=>{
+    const[target,...rest]=args.split(" ");const reason=rest.join(" ")||"No reason given";
+    if(!target){showToast("Usage: /ban <username> [reason]");return;}
+    const{data:tgt}=await sb.from("profiles").select("id,username,role").eq("username",target.replace(/^@/,"")).maybeSingle();
+    if(!tgt){showToast("❌ User not found.");return;}
+    if(tgt.role==="admin"){showToast("❌ Cannot ban an admin.");return;}
+    await sb.from("profiles").update({banned:true}).eq("id",tgt.id);
+    await logAutomod(tgt.id,tgt.username,"ban",`${reason} — by ${p.username}`);
+    const pay={user_id:currentUserId,username:p.username,avatar_url:p.avatar_url,role:p.role};
+    pay.text=`🚫 @${tgt.username} has been banned: ${reason} — by ${p.username}`;
+    await insertMsg(pay);
+    showToast(`🚫 Banned ${tgt.username}`);
+  }},
+  {c:"/unban",   mod:true, fn:async(args,p)=>{
+    const target=args.trim().replace(/^@/,"");if(!target){showToast("Usage: /unban <username>");return;}
+    const{data:tgt}=await sb.from("profiles").select("id,username").eq("username",target).maybeSingle();
+    if(!tgt){showToast("❌ User not found.");return;}
+    await sb.from("profiles").update({banned:false,warn_count:0}).eq("id",tgt.id);
+    await logAutomod(tgt.id,tgt.username,"unban",`by ${p.username}`);
+    showToast(`✅ Unbanned ${tgt.username}`);
+  }},
+  {c:"/promote", mod:true, fn:async(args,p)=>{
+    if(p.role!=="admin"){showToast("❌ Only admins can promote.");return;}
+    const target=args.trim().replace(/^@/,"");
+    await sb.from("profiles").update({role:"mod"}).eq("username",target);
+    await logAutomod(null,target,"promote",`by ${p.username}`);
+    showToast("✅ Promoted "+target+" to mod");
+  }},
+  {c:"/demote",  mod:true, fn:async(args,p)=>{
+    if(p.role!=="admin"){showToast("❌ Only admins can demote.");return;}
+    const target=args.trim().replace(/^@/,"");
+    await sb.from("profiles").update({role:"user"}).eq("username",target);
+    await logAutomod(null,target,"demote",`by ${p.username}`);
+    showToast("✅ Demoted "+target);
+  }},
+  {c:"/announce",mod:true, fn:async(args,p,pay)=>{pay.text=`📢 **${args}**`;await insertMsg(pay);}},
+  {c:"/delete",  mod:true, fn:async(args)=>{const id=parseInt(args);if(id)await deleteMsg(id);}},
 ];
 async function insertMsg(payload){
   if(activeRoom.type==="channel")payload.channel_id=activeRoom.id;else if(activeRoom.type==="server")payload.server_id=activeRoom.id;
@@ -790,6 +904,7 @@ async function runCommand(text,p){
   const parts=text.split(" ");const cmd=parts[0].toLowerCase();const args=parts.slice(1).join(" ");
   const def=CMDS.find(c=>c.c===cmd);
   if(!def){showToast("❌ Unknown command. Try /help");return;}
+  if(def.mod&&!requiresMod(p)){showToast("❌ You need to be a mod or admin to use "+cmd);return;}
   const{data:{session}}=await sb.auth.getSession();
   const payload={user_id:session.user.id,username:p.username,avatar_url:p.avatar_url,role:p.role};
   await def.fn(args,p,payload);
