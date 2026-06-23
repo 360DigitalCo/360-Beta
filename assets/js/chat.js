@@ -912,7 +912,8 @@ const CMDS=[
 ];
 async function insertMsg(payload){
   if(activeRoom.type==="channel")payload.channel_id=activeRoom.id;else if(activeRoom.type==="server")payload.server_id=activeRoom.id;
-  await sb.from("messages").insert(payload);
+  const{error}=await sb.from("messages").insert(payload);
+  if(error){console.error("insertMsg failed:",error);showToast("❌ Could not send message: "+error.message);}
 }
 async function runCommand(text,p){
   const parts=text.split(" ");const cmd=parts[0].toLowerCase();const args=parts.slice(1).join(" ");
