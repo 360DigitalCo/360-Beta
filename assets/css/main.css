@@ -364,7 +364,7 @@ body.dark .oauth-btn { background: rgba(255,255,255,.05); color: var(--txtd); }
   top: 12px; right: 12px;
   display: flex;
   gap: 10px;
-  z-index: 50;
+  z-index: 200;
 }
 .auth-btn {
   padding: 8px 14px;
