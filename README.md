@@ -1,5 +1,5 @@
 # 360
-![Version](https://img.shields.io/badge/version-3.0.0-blue)![Windows](https://shields.io) ![Linux](https://shields.io) ![Web](https://shields.io) ![Android](https://shields.io)
+![Version](https://img.shields.io/badge/version-3.0.0-blue) ![Windows](https://shields.io) ![Linux](https://shields.io) ![Web](https://shields.io) ![Android](https://shields.io)
 
 ![Reddit](https://img.shields.io/badge/Reddit-r%2F360Search-orange)
 
