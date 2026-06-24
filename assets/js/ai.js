@@ -17,7 +17,7 @@
   const fpThumb = document.getElementById("fp-thumb");
   const fpName = document.getElementById("fp-name");
   const fpCancel = document.getElementById("fp-cancel");
-  const sidebarToggleBtn = document.getElementById("sidebar-toggle");
+  const sidebarToggleBtn = document.getElementById("ai-chat-sidebar-toggle");
   const aiSidebar = document.getElementById("ai-sidebar");
   const newChatBtn = document.getElementById("new-chat-btn");
 
