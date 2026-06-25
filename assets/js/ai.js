@@ -231,23 +231,41 @@
 
   function attachFile(file) {
     if (!file) return;
-
     const name = file.name || "file";
     const mimeType = file.type || "application/octet-stream";
     const isImage = mimeType.startsWith("image/");
 
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const result = ev.target?.result;
-      if (typeof result !== "string" || !result.includes(",")) return;
-
-      const base64 = result.split(",")[1];
-      const previewUrl = isImage ? result : null;
-
-      pendingFile = { file, name, base64, mimeType, previewUrl };
-      updateFilePreview(pendingFile);
-    };
-    reader.readAsDataURL(file);
+    if (isImage) {
+      // Compress to max 1024px / JPEG 0.82 — keeps base64 under ~500KB for OpenRouter
+      const objUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(objUrl);
+        const MAX = 1024;
+        let { naturalWidth: w, naturalHeight: h } = img;
+        if (w > MAX || h > MAX) {
+          if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+          else        { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        pendingFile = { file, name, base64: dataUrl.split(",")[1], mimeType: "image/jpeg", previewUrl: dataUrl };
+        updateFilePreview(pendingFile);
+      };
+      img.onerror = () => { URL.revokeObjectURL(objUrl); showToast("⚠️ Could not read image"); };
+      img.src = objUrl;
+    } else {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const result = ev.target?.result;
+        if (typeof result !== "string" || !result.includes(",")) return;
+        pendingFile = { file, name, base64: result.split(",")[1], mimeType, previewUrl: null };
+        updateFilePreview(pendingFile);
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   on(attachBtn, "click", () => fileInput?.click());
