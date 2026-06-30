@@ -1163,6 +1163,19 @@
     };
 
     /* ─────────────────────────────────
+       SUPABASE EDGE FUNCTION AUTH
+       Same project anon key main.js uses for supabaseClient — Supabase
+       Edge Functions reject requests with no apikey/Authorization header
+       by default, so every fetch() to *.supabase.co/functions/v1/* needs
+       this attached.
+    ───────────────────────────────── */
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpc3dmcGZzamlvd3RyZHlxcHh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzg4OTcsImV4cCI6MjA4MzkxNDg5N30.z_4FtM2c8UwgrRlafPYjolQuod4IoHQats95XHio1zM";
+    const SUPABASE_FN_HEADERS = {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    };
+
+    /* ─────────────────────────────────
        ELEMENT REFS
     ───────────────────────────────── */
     const input       = document.getElementById('custom-search-input');
@@ -1766,7 +1779,9 @@
 
       Promise.allSettled(
         starts.map(s =>
-          fetch(`https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/image-search?q=${encodeURIComponent(state.query)}&start=${s}&safe=${state.safeSearch === false ? 'off' : 'active'}`)
+          fetch(`https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/image-search?q=${encodeURIComponent(state.query)}&start=${s}&safe=${state.safeSearch === false ? 'off' : 'active'}`, {
+            headers: SUPABASE_FN_HEADERS,
+          })
             .then(r => r.json())
         )
       ).then(responses => {
@@ -1864,7 +1879,9 @@
       }
 
       const reqToken = q;
-      fetch(`https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/autocomplete?q=${encodeURIComponent(q)}`)
+      fetch(`https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/autocomplete?q=${encodeURIComponent(q)}`, {
+        headers: SUPABASE_FN_HEADERS,
+      })
         .then(r => r.json())
         .then(data => {
           // Stale response guard — a slower earlier request shouldn't clobber
@@ -2425,7 +2442,7 @@
       try {
         const resp = await fetch('https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/search-ai', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...SUPABASE_FN_HEADERS },
           body: JSON.stringify({ message: q }),
           signal: aiAbortController.signal,
         });
@@ -2627,7 +2644,7 @@
       try {
         const res = await fetch(EDGE_SEARCH, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...SUPABASE_FN_HEADERS },
           body: JSON.stringify({ q, tab: 'web', safe: state.safeSearch ? 'moderate' : 'off' })
         });
         const data = await res.json();
@@ -2671,14 +2688,20 @@
       try {
         const res = await fetch(EDGE_SEARCH, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...SUPABASE_FN_HEADERS },
           body: JSON.stringify({ q, tab })
         });
+        if (!res.ok) {
+          let detail = '';
+          try { detail = (await res.json()).error || ''; } catch(e) { try { detail = await res.text(); } catch(e2) {} }
+          throw new Error(`Edge function returned ${res.status}${detail ? ': ' + detail : ''}`);
+        }
         const data = await res.json();
+        if (data.error) throw new Error(data.error);
         if (tab === 'news') renderNewsResults(data.news || []);
         else if (tab === 'shopping') renderShoppingResults(data.shopping || []);
       } catch(e) {
-        resultsArea.innerHTML = `<div class="state-box"><div class="big-icon">⚠️</div><h3>Failed to load ${tab}</h3><p>${escHtml(String(e))}</p></div>`;
+        resultsArea.innerHTML = `<div class="state-box"><div class="big-icon">⚠️</div><h3>Failed to load ${tab}</h3><p>${escHtml(String(e.message || e))}</p></div>`;
       }
     }
 
