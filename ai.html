@@ -142,6 +142,22 @@
     .ai-topbar { padding-left: 80px; }
     @media (max-width: 600px) { .ai-topbar { padding-left: 60px; } }
 
+    /* ── Mobile: sidebar has no breakpoint by default and permanently eats
+       240px of a ~375px viewport, crushing the actual chat area. On small
+       screens it now overlays on top of the chat instead of sitting beside
+       it, and starts collapsed. ── */
+    @media (max-width: 760px) {
+      #ai-sidebar {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        z-index: 60;
+        width: 240px;
+        box-shadow: 2px 0 24px rgba(0,0,0,.35);
+      }
+      #ai-sidebar.collapsed { width: 0; box-shadow: none; }
+      .ai-shell { overflow: visible; }
+    }
+
     .ai-topbar-title {
       font-size: 14px;
       font-weight: 600;
