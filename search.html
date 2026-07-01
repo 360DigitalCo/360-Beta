@@ -1225,6 +1225,7 @@
         } else {
           showResultsArea(true);
           loadKnowledgePanel(q);
+          tryInstantAnswers(q);
           fetch360IndexResults(q);
           waitForGcseAndSearch(q, t);
         }
@@ -2213,6 +2214,7 @@
       state.page = 1;
       setActiveTab(t);
       updateUrl(state.query, t);
+      if (t !== 'web') clearInstantAnswer();
 
       if (t === 'ai') {
         showResultsArea(false);
@@ -2571,6 +2573,211 @@
     }
 
     /* ─────────────────────────────────
+       INSTANT ANSWERS — calculator, unit conversion, currency, definitions
+       (Google OneBox-style). Rendered above the normal result list; the
+       regular search still runs underneath, this never blocks it.
+    ───────────────────────────────── */
+    let instantAnswerEl = null;
+
+    function ensureInstantAnswerEl() {
+      if (!instantAnswerEl) {
+        instantAnswerEl = document.createElement('div');
+        instantAnswerEl.id = 'instant-answer';
+      }
+      return instantAnswerEl;
+    }
+
+    function clearInstantAnswer() {
+      if (instantAnswerEl) instantAnswerEl.innerHTML = '';
+    }
+
+    function mountInstantAnswer(html) {
+      const el = ensureInstantAnswerEl();
+      el.innerHTML = `<div class="result-card" style="border-left:3px solid var(--a);padding:16px 18px;margin:0 0 14px;">${html}</div>`;
+      // .results-layout (resultsArea's parent) is a strict 2-column grid
+      // built for #knowledge-panel + #custom-results-area only — inserting
+      // a sibling there falls into the empty knowledge-panel column when
+      // it's hidden (the same bug the 360-Index banner hit earlier).
+      // Insert above the whole grid instead, full-width, OneBox-style.
+      const layout = document.querySelector('.results-layout');
+      if (layout && layout.parentNode && el.parentNode !== layout.parentNode) {
+        layout.parentNode.insertBefore(el, layout);
+      }
+    }
+
+    // ── 1. Calculator — safe arithmetic eval (no eval()/Function()) ──
+    const MATH_FUNCS = { sqrt: Math.sqrt, abs: Math.abs, sin: Math.sin, cos: Math.cos, tan: Math.tan, log: Math.log10, ln: Math.log, pow: Math.pow, round: Math.round, floor: Math.floor, ceil: Math.ceil };
+    function tryCalculator(q) {
+      const cleaned = q.trim().toLowerCase()
+        .replace(/\bplus\b/g, '+').replace(/\bminus\b/g, '-')
+        .replace(/\btimes\b|\bx\b/g, '*').replace(/\bdivided by\b/g, '/')
+        .replace(/\bwhat\s+is\b/g, '').replace(/=\s*\??\s*$/, '').trim();
+      if (!/^[0-9+\-*/^().\s a-z,]+$/.test(cleaned)) return null;
+      if (!/[0-9]/.test(cleaned) || !/[+\-*/^]|sqrt|log|ln|sin|cos|tan|pow/.test(cleaned)) return null;
+      try {
+        const tokens = cleaned.match(/[a-z]+|[0-9]*\.?[0-9]+|[+\-*/^(),]/g);
+        if (!tokens) return null;
+        let pos = 0;
+        function peek() { return tokens[pos]; }
+        function next() { return tokens[pos++]; }
+        function parseExpr() {
+          let v = parseTerm();
+          while (peek() === '+' || peek() === '-') { const op = next(); v = op === '+' ? v + parseTerm() : v - parseTerm(); }
+          return v;
+        }
+        function parseTerm() {
+          let v = parsePow();
+          while (peek() === '*' || peek() === '/') { const op = next(); v = op === '*' ? v * parsePow() : v / parsePow(); }
+          return v;
+        }
+        function parsePow() {
+          let v = parseUnary();
+          if (peek() === '^') { next(); v = Math.pow(v, parseUnary()); }
+          return v;
+        }
+        function parseUnary() {
+          if (peek() === '-') { next(); return -parseUnary(); }
+          return parseAtom();
+        }
+        function parseAtom() {
+          const t = next();
+          if (t === undefined) throw new Error('unexpected end');
+          if (t === '(') { const v = parseExpr(); if (next() !== ')') throw new Error('expected )'); return v; }
+          if (/^[a-z]+$/.test(t)) {
+            if (!MATH_FUNCS[t]) throw new Error('unknown fn');
+            if (next() !== '(') throw new Error('expected (');
+            const v = parseExpr();
+            if (next() !== ')') throw new Error('expected )');
+            return MATH_FUNCS[t](v);
+          }
+          return parseFloat(t);
+        }
+        const result = parseExpr();
+        if (pos !== tokens.length || !isFinite(result)) return null;
+        const display = Number.isInteger(result) ? result.toString() : parseFloat(result.toFixed(8)).toString();
+        return `<div style="font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Calculator</div>
+          <div style="font-size:28px;font-weight:700;">${escHtml(display)}</div>
+          <div style="font-size:13px;color:var(--mut);margin-top:4px;">${escHtml(q)}</div>`;
+      } catch(e) { return null; }
+    }
+
+    // ── 2. Unit conversion — length, mass, volume, temperature, speed,
+    //      time, digital storage, area. Built-in tables, instant, no API. ──
+    const UNIT_GROUPS = {
+      length: { m:1, meter:1, meters:1, km:1000, kilometer:1000, kilometers:1000, cm:0.01, centimeter:0.01, centimeters:0.01, mm:0.001, millimeter:0.001, millimeters:0.001, mi:1609.344, mile:1609.344, miles:1609.344, yd:0.9144, yard:0.9144, yards:0.9144, ft:0.3048, foot:0.3048, feet:0.3048, in:0.0254, inch:0.0254, inches:0.0254, nm:1852, "nautical mile":1852, "nautical miles":1852 },
+      mass: { kg:1, kilogram:1, kilograms:1, g:0.001, gram:0.001, grams:0.001, mg:0.000001, milligram:0.000001, milligrams:0.000001, lb:0.453592, lbs:0.453592, pound:0.453592, pounds:0.453592, oz:0.0283495, ounce:0.0283495, ounces:0.0283495, ton:907.185, tons:907.185, tonne:1000, tonnes:1000, stone:6.35029, stones:6.35029 },
+      volume: { l:1, liter:1, liters:1, litre:1, litres:1, ml:0.001, milliliter:0.001, milliliters:0.001, gal:3.78541, gallon:3.78541, gallons:3.78541, qt:0.946353, quart:0.946353, quarts:0.946353, pt:0.473176, pint:0.473176, pints:0.473176, cup:0.236588, cups:0.236588, "fl oz":0.0295735, "fluid ounce":0.0295735, tbsp:0.0147868, tablespoon:0.0147868, tsp:0.00492892, teaspoon:0.00492892 },
+      speed: { "m/s":1, "meters per second":1, "km/h":0.277778, kph:0.277778, "kilometers per hour":0.277778, mph:0.44704, "miles per hour":0.44704, knot:0.514444, knots:0.514444 },
+      time: { s:1, sec:1, second:1, seconds:1, min:60, minute:60, minutes:60, hr:3600, hour:3600, hours:3600, day:86400, days:86400, week:604800, weeks:604800, month:2629800, months:2629800, year:31557600, years:31557600 },
+      digital: { b:1, byte:1, bytes:1, kb:1024, kilobyte:1024, kilobytes:1024, mb:1048576, megabyte:1048576, megabytes:1048576, gb:1073741824, gigabyte:1073741824, gigabytes:1073741824, tb:1099511627776, terabyte:1099511627776, terabytes:1099511627776 },
+      area: { "sq m":1, "square meter":1, "square meters":1, "sq ft":0.092903, "square foot":0.092903, "square feet":0.092903, "sq km":1000000, "square kilometer":1000000, acre:4046.86, acres:4046.86, hectare:10000, hectares:10000 },
+    };
+    function findUnit(name) {
+      name = name.trim().toLowerCase();
+      for (const [group, units] of Object.entries(UNIT_GROUPS)) {
+        if (units[name] !== undefined) return { group, factor: units[name], canonical: name };
+      }
+      return null;
+    }
+    function tryUnitConversion(q) {
+      const m = q.trim().match(/^([\d.,]+)\s*([a-z°\/\s]+?)\s+(?:to|in|=)\s+([a-z°\/\s]+?)\s*\??$/i);
+      if (!m) return null;
+      const amount = parseFloat(m[1].replace(/,/g, ''));
+      if (isNaN(amount)) return null;
+      const fromU = findUnit(m[2]);
+      const toU = findUnit(m[3]);
+      if (!fromU || !toU || fromU.group !== toU.group) return null;
+      const result = (amount * fromU.factor) / toU.factor;
+      const display = Number.isInteger(result) ? result.toString() : parseFloat(result.toPrecision(6)).toString();
+      return `<div style="font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Unit Conversion</div>
+        <div style="font-size:24px;font-weight:700;">${escHtml(amount.toString())} ${escHtml(m[2].trim())} = ${escHtml(display)} ${escHtml(m[3].trim())}</div>`;
+    }
+
+    // ── 3. Temperature — separate from linear unit table (needs offset) ──
+    const TEMP_UNITS = ['c','celsius','f','fahrenheit','k','kelvin'];
+    function tryTemperature(q) {
+      const m = q.trim().match(/^([\d.,\-]+)\s*°?\s*(celsius|fahrenheit|kelvin|c|f|k)\s+(?:to|in)\s+°?\s*(celsius|fahrenheit|kelvin|c|f|k)\s*\??$/i);
+      if (!m) return null;
+      const amount = parseFloat(m[1].replace(/,/g, ''));
+      if (isNaN(amount)) return null;
+      const norm = u => u.toLowerCase()[0];
+      const from = norm(m[2]), to = norm(m[3]);
+      if (!TEMP_UNITS.includes(from[0]) ) return null;
+      let celsius;
+      if (from === 'c') celsius = amount;
+      else if (from === 'f') celsius = (amount - 32) * 5/9;
+      else celsius = amount - 273.15;
+      let result;
+      if (to === 'c') result = celsius;
+      else if (to === 'f') result = celsius * 9/5 + 32;
+      else result = celsius + 273.15;
+      const display = parseFloat(result.toFixed(2)).toString();
+      const unitLabel = { c: '°C', f: '°F', k: 'K' };
+      return `<div style="font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Unit Conversion</div>
+        <div style="font-size:24px;font-weight:700;">${escHtml(amount.toString())}${unitLabel[from]} = ${escHtml(display)}${unitLabel[to]}</div>`;
+    }
+
+    // ── 4. Currency conversion — real live rates via edge proxy ──
+    const CURRENCY_CODES = new Set(['usd','eur','gbp','jpy','cad','aud','chf','cny','inr','mxn','brl','krw','sgd','nzd','sek','nok','dkk','pln','try','zar','hkd','thb','ils','aed','rub']);
+    async function tryCurrencyConversion(q) {
+      const m = q.trim().match(/^([\d.,]+)\s*([a-z]{3})\s+(?:to|in)\s+([a-z]{3})\s*\??$/i);
+      if (!m) return false;
+      const amount = parseFloat(m[1].replace(/,/g, ''));
+      const from = m[2].toLowerCase(), to = m[3].toLowerCase();
+      if (isNaN(amount) || !CURRENCY_CODES.has(from) || !CURRENCY_CODES.has(to)) return false;
+      try {
+        const res = await fetch(`https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/currency-convert?from=${from}&to=${to}&amount=${amount}`, { headers: SUPABASE_FN_HEADERS });
+        const data = await res.json();
+        if (data.error || data.result === undefined) return false;
+        mountInstantAnswer(`<div style="font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Currency Conversion · Live rate ${escHtml(data.date||'')}</div>
+          <div style="font-size:24px;font-weight:700;">${amount} ${from.toUpperCase()} = ${data.result.toFixed(2)} ${to.toUpperCase()}</div>`);
+        return true;
+      } catch(e) { return false; }
+    }
+
+    // ── 5. Dictionary definitions — Free Dictionary API (real, no key) ──
+    async function tryDefinition(q) {
+      const m = q.trim().match(/^(?:define|definition of|what does|meaning of)\s+([a-z' -]+?)(?:\s+mean)?\??$/i)
+        || q.trim().match(/^([a-z' -]{2,30})\s+definition\??$/i);
+      if (!m) return false;
+      const word = m[1].trim();
+      if (!word || word.split(/\s+/).length > 3) return false;
+      try {
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+        if (!res.ok) return false;
+        const data = await res.json();
+        const entry = data[0];
+        if (!entry) return false;
+        const phonetic = entry.phonetic || entry.phonetics?.find(p => p.text)?.text || '';
+        let html = `<div style="font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Dictionary</div>
+          <div style="font-size:24px;font-weight:700;">${escHtml(entry.word)}</div>
+          ${phonetic ? `<div style="color:var(--mut);font-size:14px;margin-bottom:8px;">${escHtml(phonetic)}</div>` : ''}`;
+        (entry.meanings || []).slice(0, 3).forEach(meaning => {
+          const def = meaning.definitions?.[0];
+          if (!def) return;
+          html += `<div style="margin-top:10px;">
+            <span style="font-style:italic;color:var(--mut);font-size:13px;">${escHtml(meaning.partOfSpeech)}</span>
+            <div style="font-size:15px;margin-top:2px;">${escHtml(def.definition)}</div>
+            ${def.example ? `<div style="font-size:13px;color:var(--mut);margin-top:2px;">“${escHtml(def.example)}”</div>` : ''}
+          </div>`;
+        });
+        mountInstantAnswer(html);
+        return true;
+      } catch(e) { return false; }
+    }
+
+    // ── Orchestrator — tries sync answers first (instant), then async ones ──
+    async function tryInstantAnswers(q) {
+      clearInstantAnswer();
+      const calc = tryCalculator(q);
+      if (calc) { mountInstantAnswer(calc); return; }
+      const unit = tryUnitConversion(q) || tryTemperature(q);
+      if (unit) { mountInstantAnswer(unit); return; }
+      if (await tryCurrencyConversion(q)) return;
+      await tryDefinition(q);
+    }
+
+    /* ─────────────────────────────────
        DO SEARCH (main entry point)
     ───────────────────────────────── */
     function doSearch(q) {
@@ -2607,7 +2814,11 @@
       } else if (state.tab === 'shopping') {
         run360Search(q, 'shopping');
       } else {
-        // Web tab: fetch 360 index first, then GCSE fills the rest
+        // Web tab: fetch 360 index first, then GCSE fills the rest.
+        // Instant answers (calculator/conversions/definitions) run
+        // alongside — never blocks the normal result list.
+        clearInstantAnswer();
+        tryInstantAnswers(q);
         fetch360IndexResults(q);
         waitForGcseAndSearch(q, state.tab);
       }
@@ -2803,23 +3014,100 @@
       resultsArea.innerHTML = html;
     }
 
+    let lastShoppingProducts = [];
+
+    function debounce(fn, ms) {
+      let t;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
+    function parsePriceNum(str) {
+      const m = String(str || '').match(/[\d,]+\.?\d*/);
+      return m ? parseFloat(m[0].replace(/,/g, '')) : null;
+    }
+
+    function shoppingCardHtml(p, i) {
+      return `<div class="result-card" style="animation-delay:${i*0.03}s;padding:14px;display:flex;flex-direction:column;gap:8px;">
+        ${p.thumb ? `<img src="${escHtml(p.thumb)}" alt="${escHtml(p.title)}" loading="lazy" onerror="this.remove()" style="width:100%;height:140px;object-fit:contain;border-radius:8px;background:rgba(0,0,0,0.05);">` : ''}
+        <div style="font-size:13px;font-weight:600;line-height:1.4;flex:1">${escHtml(p.title)}</div>
+        ${p.price ? `<div style="font-size:15px;font-weight:700;color:var(--a)">${escHtml(p.price)}</div>` : ''}
+        ${p.source ? `<div style="font-size:11px;color:var(--mut)">${escHtml(p.source)}</div>` : ''}
+        ${(p.rating !== null && p.rating !== undefined) ? `<div style="font-size:11px;color:var(--mut)">⭐ ${p.rating}${p.reviews ? ` (${p.reviews})` : ''}</div>` : ''}
+        ${p.desc ? `<div style="font-size:12px;color:var(--mut);line-height:1.4">${escHtml(p.desc.slice(0,100))}</div>` : ''}
+        <a href="${escHtml(p.url)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--a);text-decoration:none;font-weight:600;margin-top:auto">View →</a>
+      </div>`;
+    }
+
+    function applyShoppingFilters() {
+      const sortSel = document.getElementById('shop-sort');
+      const minEl = document.getElementById('shop-min-price');
+      const maxEl = document.getElementById('shop-max-price');
+      const grid = document.getElementById('shop-grid');
+      const countEl = document.getElementById('shop-result-count');
+      if (!grid) return;
+
+      const min = minEl && minEl.value !== '' ? parseFloat(minEl.value) : null;
+      const max = maxEl && maxEl.value !== '' ? parseFloat(maxEl.value) : null;
+
+      let list = lastShoppingProducts.filter(p => {
+        const priceNum = parsePriceNum(p.price);
+        if (min !== null && (priceNum === null || priceNum < min)) return false;
+        if (max !== null && (priceNum === null || priceNum > max)) return false;
+        return true;
+      });
+
+      const sort = sortSel ? sortSel.value : 'relevance';
+      if (sort === 'price-asc' || sort === 'price-desc') {
+        list = list.slice().sort((a, b) => {
+          const pa = parsePriceNum(a.price), pb = parsePriceNum(b.price);
+          if (pa === null && pb === null) return 0;
+          if (pa === null) return 1; // no-price items sort last regardless of direction
+          if (pb === null) return -1;
+          return sort === 'price-asc' ? pa - pb : pb - pa;
+        });
+      } else if (sort === 'rating') {
+        list = list.slice().sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+      }
+
+      if (countEl) countEl.textContent = `${list.length} of ${lastShoppingProducts.length} results`;
+      grid.innerHTML = list.length
+        ? list.map((p, i) => shoppingCardHtml(p, i)).join('')
+        : `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--mut);">No products match this price range.</div>`;
+    }
+
     function renderShoppingResults(products) {
       if (!products.length) { renderNoResults(); return; }
-      let html = `<div class="results-info">${escHtml(products.length + ' shopping results')}</div>`;
-      html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:6px;">`;
-      products.forEach((p, i) => {
-        html += `<div class="result-card" style="animation-delay:${i*0.03}s;padding:14px;display:flex;flex-direction:column;gap:8px;">
-          ${p.thumb ? `<img src="${escHtml(p.thumb)}" alt="${escHtml(p.title)}" loading="lazy" onerror="this.remove()" style="width:100%;height:140px;object-fit:contain;border-radius:8px;background:rgba(0,0,0,0.05);">` : ''}
-          <div style="font-size:13px;font-weight:600;line-height:1.4;flex:1">${escHtml(p.title)}</div>
-          ${p.price ? `<div style="font-size:15px;font-weight:700;color:var(--a)">${escHtml(p.price)}</div>` : ''}
-          ${p.source ? `<div style="font-size:11px;color:var(--mut)">${escHtml(p.source)}</div>` : ''}
-          ${(p.rating !== null && p.rating !== undefined) ? `<div style="font-size:11px;color:var(--mut)">⭐ ${p.rating}${p.reviews ? ` (${p.reviews})` : ''}</div>` : ''}
-          ${p.desc ? `<div style="font-size:12px;color:var(--mut);line-height:1.4">${escHtml(p.desc.slice(0,100))}</div>` : ''}
-          <a href="${escHtml(p.url)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--a);text-decoration:none;font-weight:600;margin-top:auto">View →</a>
-        </div>`;
-      });
+      lastShoppingProducts = products;
+
+      const hasPrices = products.some(p => parsePriceNum(p.price) !== null);
+      const hasRatings = products.some(p => p.rating !== null && p.rating !== undefined);
+
+      let html = `<div class="results-info" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;">
+        <span id="shop-result-count">${products.length} shopping results</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          ${hasPrices ? `
+            <input id="shop-min-price" type="number" placeholder="Min $" style="width:80px;padding:6px 8px;border-radius:8px;border:1px solid var(--glass-border);background:transparent;color:inherit;font-size:12px;">
+            <span style="color:var(--mut);font-size:12px;">–</span>
+            <input id="shop-max-price" type="number" placeholder="Max $" style="width:80px;padding:6px 8px;border-radius:8px;border:1px solid var(--glass-border);background:transparent;color:inherit;font-size:12px;">
+          ` : ''}
+          <select id="shop-sort" style="padding:6px 10px;border-radius:8px;border:1px solid var(--glass-border);background:transparent;color:inherit;font-size:12px;">
+            <option value="relevance">Sort: Relevance</option>
+            ${hasPrices ? `<option value="price-asc">Price: Low to High</option><option value="price-desc">Price: High to Low</option>` : ''}
+            ${hasRatings ? `<option value="rating">Highest Rated</option>` : ''}
+          </select>
+        </div>
+      </div>`;
+      html += `<div id="shop-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:12px;">`;
+      html += products.map((p, i) => shoppingCardHtml(p, i)).join('');
       html += `</div>`;
       resultsArea.innerHTML = html;
+
+      const sortSel = document.getElementById('shop-sort');
+      const minEl = document.getElementById('shop-min-price');
+      const maxEl = document.getElementById('shop-max-price');
+      if (sortSel) sortSel.addEventListener('change', applyShoppingFilters);
+      if (minEl) minEl.addEventListener('input', debounce(applyShoppingFilters, 300));
+      if (maxEl) maxEl.addEventListener('input', debounce(applyShoppingFilters, 300));
     }
 
     function renderNoResults() {
