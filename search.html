@@ -1621,7 +1621,7 @@
       if (edgeWebFallback && edgeWebFallback.web && edgeWebFallback.web.length) {
         if (index360El) index360El.innerHTML = ''; // avoid duplicating banner items already merged below
         const mapped = edgeWebFallback.web.map(r => ({ href: r.url, title: r.title, snippet: r.desc, thumb: r.thumb }));
-        const note = 'Web search widget unavailable (likely blocked by an ad blocker) — showing 360 Index results instead.';
+        const note = edgeWebFallback.countText || '';
         renderWebResults(mapped, note, 1, 1);
       } else {
         resultsArea.innerHTML = `
@@ -2687,15 +2687,11 @@
         const indexResults = (data.web || []).filter(r => r._from360);
         if (!indexResults.length) { index360El.innerHTML = ''; return; }
 
-        let html = `<div style="margin-bottom:18px;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--mut);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            360 Index
-          </div>`;
+        let html = '';
         indexResults.forEach((r, i) => {
           let hostname = '';
           try { hostname = new URL(r.url).hostname.replace('www.', ''); } catch(e) {}
-          html += `<div class="result-card" style="animation-delay:${i*0.04}s;border-left:3px solid var(--a);padding-left:14px;">
+          html += `<div class="result-card" style="animation-delay:${i*0.04}s;">
             <div class="result-card-inner">
               <div class="result-card-text">
                 <div class="result-site-row">
@@ -2708,7 +2704,6 @@
             </div>
           </div>`;
         });
-        html += `</div><hr style="border:none;border-top:1px solid var(--glass-border);margin:0 0 18px;">`;
         index360El.innerHTML = html;
       } catch(e) {
         index360El.innerHTML = '';
@@ -2734,26 +2729,16 @@
         }
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        if (tab === 'news') renderNewsResults(data.news || [], !!data.fromIndex);
-        else if (tab === 'shopping') renderShoppingResults(data.shopping || [], !!data.fromIndex);
+        if (tab === 'news') renderNewsResults(data.news || []);
+        else if (tab === 'shopping') renderShoppingResults(data.shopping || []);
       } catch(e) {
         resultsArea.innerHTML = `<div class="state-box"><div class="big-icon">⚠️</div><h3>Failed to load ${tab}</h3><p>${escHtml(String(e.message || e))}</p></div>`;
       }
     }
 
-    function index360Banner(note) {
-      return `<div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--mut);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        360 Index — ${escHtml(note)}
-      </div>`;
-    }
-
-    function renderNewsResults(articles, fromIndex) {
+    function renderNewsResults(articles) {
       if (!articles.length) { renderNoResults(); return; }
-      let html = fromIndex
-        ? index360Banner('live news provider unavailable, showing matches from our crawled index')
-        : '';
-      html += `<div class="results-info">${escHtml(articles.length + ' news articles')}</div>`;
+      let html = `<div class="results-info">${escHtml(articles.length + ' news articles')}</div>`;
       articles.forEach((a, i) => {
         const delay = i * 0.03;
         html += `<div class="result-card" style="animation-delay:${delay}s">
@@ -2774,12 +2759,9 @@
       resultsArea.innerHTML = html;
     }
 
-    function renderShoppingResults(products, fromIndex) {
+    function renderShoppingResults(products) {
       if (!products.length) { renderNoResults(); return; }
-      let html = fromIndex
-        ? index360Banner('live shopping provider unavailable, showing matches from our crawled index')
-        : '';
-      html += `<div class="results-info">${escHtml(products.length + ' shopping results')}</div>`;
+      let html = `<div class="results-info">${escHtml(products.length + ' shopping results')}</div>`;
       html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:6px;">`;
       products.forEach((p, i) => {
         html += `<div class="result-card" style="animation-delay:${i*0.03}s;padding:14px;display:flex;flex-direction:column;gap:8px;">
@@ -2789,7 +2771,7 @@
           ${p.source ? `<div style="font-size:11px;color:var(--mut)">${escHtml(p.source)}</div>` : ''}
           ${(p.rating !== null && p.rating !== undefined) ? `<div style="font-size:11px;color:var(--mut)">⭐ ${p.rating}${p.reviews ? ` (${p.reviews})` : ''}</div>` : ''}
           ${p.desc ? `<div style="font-size:12px;color:var(--mut);line-height:1.4">${escHtml(p.desc.slice(0,100))}</div>` : ''}
-          <a href="${escHtml(p.url)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--a);text-decoration:none;font-weight:600;margin-top:auto">${fromIndex ? 'Read more →' : 'View product →'}</a>
+          <a href="${escHtml(p.url)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--a);text-decoration:none;font-weight:600;margin-top:auto">View →</a>
         </div>`;
       });
       html += `</div>`;
