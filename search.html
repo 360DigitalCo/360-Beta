@@ -1543,7 +1543,14 @@
           bestTitle
             ? fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(bestTitle)}`)
             : Promise.resolve(null),
-          fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`),
+          // DuckDuckGo's api.duckduckgo.com does not reliably send CORS
+          // headers, so calling it directly from the browser fails with a
+          // console CORS error on every search (it degraded silently in the
+          // UI, but was still a real broken network call). Routed through
+          // our ddg-instant edge function, which proxies it server-side.
+          fetch(`https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/ddg-instant?q=${encodeURIComponent(q)}`, {
+            headers: SUPABASE_FN_HEADERS,
+          }),
           bestTitle ? fetchWikidataFacts(bestTitle, myToken) : Promise.resolve([]),
         ]);
         if (myToken !== kpToken) return; // a newer search started while we were waiting
