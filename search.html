@@ -1626,7 +1626,6 @@
     function useIndexFallbackForWeb(q) {
       state.pendingSearch = null;
       if (edgeWebFallback && edgeWebFallback.web && edgeWebFallback.web.length) {
-        if (index360El) index360El.innerHTML = ''; // avoid duplicating banner items already merged below
         const mapped = edgeWebFallback.web.map(r => ({ href: r.url, title: r.title, snippet: r.desc, thumb: r.thumb }));
         const note = edgeWebFallback.countText || '';
         renderWebResults(mapped, note, 1, 1);
@@ -1761,7 +1760,19 @@
       const resultEls = gcseContainer.querySelectorAll('.gsc-webResult.gsc-result');
       if (!resultEls.length) {
         const noResults = gcseContainer.querySelector('.gs-no-results-result, .gsc-no-results-result');
-        if (noResults) { renderNoResults(); return; }
+        const indexOnly = (edgeWebFallback?.web || []).filter(r => r._from360);
+        if (noResults) {
+          if (indexOnly.length) {
+            const merged = indexOnly.map(r => {
+              let hostname = ''; try { hostname = new URL(r.url).hostname.replace('www.', ''); } catch(e) {}
+              return { title: r.title, href: r.url, displayUrl: hostname, snippet: r.desc || '', thumb: '' };
+            });
+            renderWebResults(merged, '', 1, 1);
+          } else {
+            renderNoResults();
+          }
+          return;
+        }
         return; // still loading
       }
 
@@ -1803,7 +1814,23 @@
       });
 
       const { countText, currentPage, totalPages } = getGcsePaginationInfo(gcseContainer);
-      renderWebResults(results, countText, currentPage, totalPages);
+
+      // Merge in crawled-index results, same shape as GCSE results, so they
+      // render as identical cards in the same single list — not a separate
+      // styled section.
+      const indexResults = (edgeWebFallback?.web || []).filter(r => r._from360);
+      const merged = [...results];
+      const seenIndexHrefs = new Set(results.map(r => (r.href||'').replace(/\/$/,'').toLowerCase()));
+      indexResults.forEach(r => {
+        const key = (r.url||'').replace(/\/$/,'').toLowerCase();
+        if (seenIndexHrefs.has(key)) return;
+        seenIndexHrefs.add(key);
+        let hostname = '';
+        try { hostname = new URL(r.url).hostname.replace('www.', ''); } catch(e) {}
+        merged.unshift({ title: r.title, href: r.url, displayUrl: hostname, snippet: r.desc || '', thumb: '' });
+      });
+
+      renderWebResults(merged, countText, currentPage, totalPages);
     }
 
     function scrapeImageResults(gcseContainer) {
@@ -2667,22 +2694,16 @@
     }
 
     /* ─────────────────────────────────
-       360 INDEX — inject crawled results above GCSE
+       360 INDEX — fetch crawled results, merge into the same result list
+       as GCSE (see scrapeWebResults) instead of a separate DOM node, since
+       inserting a sibling into #results-layout (a strict 320px/1fr grid
+       meant for #knowledge-panel + #custom-results-area) broke the layout
+       into a mismatched narrow/wide split.
     ───────────────────────────────── */
     const EDGE_SEARCH = 'https://wiswfpfsjiowtrdyqpxy.supabase.co/functions/v1/search';
-    let index360El = null;
-    let edgeWebFallback = null; // full last web-tab response, used if the GCSE widget never loads
+    let edgeWebFallback = null; // full last web-tab response, used to merge into GCSE results and as a fallback if GCSE never loads
 
     async function fetch360IndexResults(q) {
-      // Create/clear the 360 index banner above results
-      if (!index360El) {
-        index360El = document.createElement('div');
-        index360El.id = 'index-360-results';
-      }
-      index360El.innerHTML = '';
-      // Insert above resultsArea
-      resultsArea.parentNode.insertBefore(index360El, resultsArea);
-
       try {
         const res = await fetch(EDGE_SEARCH, {
           method: 'POST',
@@ -2690,30 +2711,12 @@
           body: JSON.stringify({ q, tab: 'web', safe: state.safeSearch ? 'moderate' : 'off' })
         });
         const data = await res.json();
-        edgeWebFallback = data; // keep full response around in case GCSE never loads
-        const indexResults = (data.web || []).filter(r => r._from360);
-        if (!indexResults.length) { index360El.innerHTML = ''; return; }
-
-        let html = '';
-        indexResults.forEach((r, i) => {
-          let hostname = '';
-          try { hostname = new URL(r.url).hostname.replace('www.', ''); } catch(e) {}
-          html += `<div class="result-card" style="animation-delay:${i*0.04}s;">
-            <div class="result-card-inner">
-              <div class="result-card-text">
-                <div class="result-site-row">
-                  <img class="result-favicon" src="${escHtml(r.favicon||'')}" alt="" loading="lazy" onerror="this.style.display='none'"/>
-                  <span class="result-site-name">${escHtml(hostname)}</span>
-                </div>
-                <a class="result-title" href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer">${escHtml(r.title)}</a>
-                ${r.desc ? `<div class="result-snippet">${escHtml(r.desc.slice(0,200))}</div>` : ''}
-              </div>
-            </div>
-          </div>`;
-        });
-        index360El.innerHTML = html;
+        edgeWebFallback = data;
+        // If GCSE already finished rendering before this resolved, re-merge
+        // now so index results still show up without a full reload.
+        if (state.tab === 'web' && !state.pendingSearch) scrapeAndRender();
       } catch(e) {
-        index360El.innerHTML = '';
+        edgeWebFallback = null;
       }
     }
 
@@ -2722,7 +2725,6 @@
     ───────────────────────────────── */
     async function run360Search(q, tab) {
       showLoading();
-      if (index360El) index360El.innerHTML = '';
       try {
         const res = await fetch(EDGE_SEARCH, {
           method: 'POST',
