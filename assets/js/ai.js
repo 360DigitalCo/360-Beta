@@ -650,6 +650,29 @@
 
   on(newChatBtn, "click", startNewChat);
 
+  /* ── seed conversation from search.html's "Continue this conversation"
+     handoff link (?q=...&a=...) — makes the AI tab feel like Gemini's
+     "continue in full chat" flow instead of starting over from scratch ── */
+  (() => {
+    const params = new URLSearchParams(location.search);
+    const seedQ = params.get("q");
+    const seedA = params.get("a");
+    if (!seedQ || !seedA) return;
+    try {
+      const decodedA = decodeURIComponent(escape(atob(seedA)));
+      appendUserBubble(seedQ);
+      appendAssistantBubble(decodedA);
+      history.push({ role: "user", content: seedQ });
+      history.push({ role: "assistant", content: decodedA });
+      const url = new URL(location.href);
+      url.searchParams.delete("q");
+      url.searchParams.delete("a");
+      window.history.replaceState(null, "", url.toString());
+    } catch (e) {
+      console.error("Failed to seed conversation from handoff:", e);
+    }
+  })();
+
   function showToast(msg) {
     const t = document.createElement("div");
     t.className = "ai-toast";
