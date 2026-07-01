@@ -55,6 +55,13 @@
       opacity: 0;
       pointer-events: none;
       z-index: -1;
+      /* A transform on this ancestor makes it the containing block for any
+         position:fixed descendants Google's widget injects (autosuggest
+         boxes, "Explore further" / related-product cards, etc). Without
+         this, fixed-position children ignore left:-9999px entirely because
+         fixed positioning is relative to the viewport, not this container —
+         which is how stray Google cards were leaking into view. */
+      transform: translateZ(0);
     }
 
     /* ── Page layout — NO background set ── */
