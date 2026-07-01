@@ -19,6 +19,9 @@
   const fpCancel = document.getElementById("fp-cancel");
   const sidebarToggleBtn = document.getElementById("ai-chat-sidebar-toggle");
   const aiSidebar = document.getElementById("ai-sidebar");
+  // Sidebar overlays on mobile (see ai.html's max-width:760px rule) —
+  // start collapsed there so it doesn't block the chat on first load.
+  if (aiSidebar && window.innerWidth <= 760) aiSidebar.classList.add("collapsed");
   const newChatBtn = document.getElementById("new-chat-btn");
 
   const SB_URL = "https://wiswfpfsjiowtrdyqpxy.supabase.co";
