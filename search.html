@@ -1841,9 +1841,20 @@
         seenIndexHrefs.add(key);
         let hostname = '';
         try { hostname = new URL(r.url).hostname.replace('www.', ''); } catch(e) {}
-        indexCards.push({ title: r.title, href: r.url, displayUrl: hostname, snippet: r.desc || '', thumb: '' });
+        // r._score is the backend's blended relevance score (cosine
+        // similarity + full-text rank + PageRank authority), roughly
+        // 0-0.6 for real matches after calibration. GCSE results carry no
+        // numeric score of their own, but their array order already IS
+        // Google's relevance ranking, so we assign a comparable synthetic
+        // score by position (starts at 1.0, decays per rank) and sort the
+        // two lists together — instead of always forcing our results
+        // first, which was overriding Google's own ranking outright even
+        // when its top pick was clearly more relevant.
+        indexCards.push({ title: r.title, href: r.url, displayUrl: hostname, snippet: r.desc || '', thumb: r.thumb || '', _score: r._score ?? 0.3 });
       });
-      const merged = [...indexCards, ...results];
+
+      const gcseScored = results.map((r, i) => ({ ...r, _score: Math.max(0.05, 1 - i * 0.09) }));
+      const merged = [...indexCards, ...gcseScored].sort((a, b) => b._score - a._score);
 
       renderWebResults(merged, countText, currentPage, totalPages);
     }
@@ -2753,9 +2764,18 @@
         }
         const data = await res.json();
         if (data.error) throw new Error(data.error);
+        // Guard against stale responses: if the user switched tabs while
+        // this request was in flight (e.g. News takes longer than a
+        // follow-up Shopping request), the older response must not
+        // overwrite whatever the newer, currently-active tab is showing.
+        // This was the cause of "shopping switches to news after a few
+        // seconds" — a late-arriving News response with no staleness
+        // check at all would blindly render over the Shopping results.
+        if (state.tab !== tab) return;
         if (tab === 'news') renderNewsResults(data.news || []);
         else if (tab === 'shopping') renderShoppingResults(data.shopping || []);
       } catch(e) {
+        if (state.tab !== tab) return;
         resultsArea.innerHTML = `<div class="state-box"><div class="big-icon">⚠️</div><h3>Failed to load ${tab}</h3><p>${escHtml(String(e.message || e))}</p></div>`;
       }
     }
