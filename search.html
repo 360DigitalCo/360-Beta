@@ -2373,6 +2373,10 @@
         } else if (t === 'shopping') {
           run360Search(state.query, 'shopping');
         } else {
+          // Switching to Web tab was missing this — only a fresh search
+          // triggered it, so tab-switching alone never merged in the
+          // crawled index, only GCSE's own results.
+          fetch360IndexResults(state.query);
           waitForGcseAndSearch(state.query, t);
         }
       }
