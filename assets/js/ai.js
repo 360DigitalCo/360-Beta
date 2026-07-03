@@ -361,6 +361,171 @@
     modelBadge.textContent = model;
   }
 
+  /* ── slash commands ──────────────────────────────────────────────── */
+
+  const VALID_THEMES = ["ocean", "midnight", "sunset", "mint", "neon", "mono"];
+
+  function switchTheme(arg) {
+    const theme = (arg || "").trim().toLowerCase();
+    if (!VALID_THEMES.includes(theme)) {
+      showToast(`Usage: /theme <${VALID_THEMES.join("|")}>`);
+      return;
+    }
+    document.body.classList.forEach(c => { if (c.startsWith("theme-")) document.body.classList.remove(c); });
+    document.body.classList.add("theme-" + theme);
+    localStorage.setItem("theme", theme); // same key main.js's swatch picker uses — stays in sync site-wide
+    showToast(`Theme set to ${theme}`);
+  }
+
+  function copyLastResponse() {
+    const bubbles = aiOutput ? aiOutput.querySelectorAll(".ai-bubble.assistant .bubble-inner") : [];
+    const last = bubbles[bubbles.length - 1];
+    if (!last) { showToast("Nothing to copy yet"); return; }
+    navigator.clipboard.writeText(last.innerText || "").then(
+      () => showToast("Copied last response"),
+      () => showToast("Couldn't access clipboard")
+    );
+  }
+
+  function exportConversation() {
+    if (!history.length) { showToast("Nothing to export yet"); return; }
+    const lines = history.map(m => `**${m.role === "user" ? "You" : "360 AI"}:**\n\n${m.content}\n`);
+    const md = `# 360 AI Conversation\n\n${lines.join("\n---\n\n")}`;
+    const blob = new Blob([md], { type: "text/markdown" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `360-ai-conversation-${Date.now()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showToast("Conversation exported");
+  }
+
+  function regenerateLast() {
+    if (history.length < 2) { showToast("Nothing to regenerate yet"); return; }
+    const lastUser = history[history.length - 2];
+    if (!lastUser || lastUser.role !== "user") { showToast("Nothing to regenerate"); return; }
+    history.splice(-2, 2); // drop the last user+assistant pair — sendAI() will re-add fresh ones
+    const bubbles = aiOutput ? aiOutput.querySelectorAll(".ai-bubble") : [];
+    if (bubbles.length >= 2) {
+      bubbles[bubbles.length - 1].remove(); // assistant
+      bubbles[bubbles.length - 2].remove(); // user
+    }
+    if (aiInput) aiInput.value = lastUser.content;
+    sendAI();
+  }
+
+  function setPersona(arg) {
+    const instruction = (arg || "").trim();
+    if (!instruction) { showToast("Usage: /persona <instruction>"); return; }
+    // The backend's system prompt is fixed server-side and strips any
+    // client-sent system-role messages, so a real system override isn't
+    // possible without a backend change. This is the standard workaround:
+    // inject the instruction as a strong prior exchange so every
+    // following turn has it as context.
+    history.push({ role: "user", content: `For the rest of this conversation, please follow this instruction: ${instruction}` });
+    history.push({ role: "assistant", content: `Understood — I'll keep that in mind for the rest of this conversation.` });
+    showToast("Persona set for this conversation");
+  }
+
+  const SLASH_COMMANDS = [
+    { name: "help", args: "", desc: "List all commands", run: () => showCommandHelp() },
+    { name: "new", args: "", desc: "Start a new conversation", run: () => startNewChat() },
+    { name: "clear", args: "", desc: "Start a new conversation", run: () => startNewChat() },
+    { name: "regenerate", args: "", desc: "Regenerate the last response", run: () => regenerateLast() },
+    { name: "retry", args: "", desc: "Regenerate the last response", run: () => regenerateLast() },
+    { name: "copy", args: "", desc: "Copy the last response to clipboard", run: () => copyLastResponse() },
+    { name: "export", args: "", desc: "Download this conversation as Markdown", run: () => exportConversation() },
+    { name: "delete", args: "", desc: "Delete the current saved conversation", run: () => { currentConvId ? deleteConversation(currentConvId) : showToast("No saved conversation to delete"); } },
+    { name: "theme", args: "<name>", desc: `Switch theme: ${VALID_THEMES.join(", ")}`, run: switchTheme },
+    { name: "persona", args: "<instruction>", desc: "Give the AI a standing instruction for this chat", run: setPersona },
+  ];
+
+  function showCommandHelp() {
+    const lines = SLASH_COMMANDS.map(c => `- \`/${c.name}${c.args ? " " + c.args : ""}\` — ${c.desc}`).join("\n");
+    appendAssistantBubble(`**Available commands**\n\n${lines}`, false);
+  }
+
+  // Returns true if the input was a recognized slash command (and was
+  // handled) — sendAI() checks this and returns early without hitting the
+  // AI backend at all.
+  function tryRunSlashCommand(raw) {
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith("/")) return false;
+    const [cmdName, ...rest] = trimmed.slice(1).split(/\s+/);
+    const arg = trimmed.slice(1 + cmdName.length).trim();
+    const cmd = SLASH_COMMANDS.find(c => c.name === cmdName.toLowerCase());
+    if (!cmd) {
+      appendAssistantBubble(`Unknown command \`/${cmdName}\`. Type \`/help\` to see available commands.`, false);
+      return true; // still "handled" — don't send an unknown slash command to the AI as a literal prompt
+    }
+    cmd.run(arg);
+    return true;
+  }
+
+  /* ── slash command autocomplete palette (Discord-style) ─────────── */
+  let paletteEl = null;
+  let paletteIndex = 0;
+
+  function closePalette() {
+    if (paletteEl) { paletteEl.remove(); paletteEl = null; }
+  }
+
+  function renderPalette(matches) {
+    closePalette();
+    if (!matches.length) return;
+    paletteIndex = 0;
+    paletteEl = document.createElement("div");
+    paletteEl.id = "slash-palette";
+    paletteEl.style.cssText = `
+      position:absolute; bottom:100%; left:0; right:0; margin-bottom:8px;
+      background:var(--bg); border:1px solid var(--br); border-radius:var(--ai-radius-md, 12px);
+      box-shadow:0 -8px 24px rgba(0,0,0,.25); overflow:hidden; z-index:40; max-height:240px; overflow-y:auto;
+    `;
+    matches.forEach((cmd, i) => {
+      const row = document.createElement("div");
+      row.className = "slash-palette-item";
+      row.dataset.index = i;
+      row.style.cssText = `padding:9px 14px; cursor:pointer; display:flex; gap:10px; align-items:baseline; font-size:13px;` + (i === 0 ? " background:var(--ai-surface, rgba(148,163,184,.08));" : "");
+      row.innerHTML = `<span style="font-weight:700;color:var(--a);">/${cmd.name}${cmd.args ? " " + escHtml(cmd.args) : ""}</span><span style="color:var(--mut);font-size:12px;">${escHtml(cmd.desc)}</span>`;
+      row.addEventListener("mousedown", e => {
+        e.preventDefault();
+        applyPaletteSelection(cmd);
+      });
+      paletteEl.appendChild(row);
+    });
+    const row = aiInput?.closest(".ai-input-row") || aiInput?.parentElement;
+    (row || document.body).style.position = "relative";
+    (row || document.body).appendChild(paletteEl);
+  }
+
+  function applyPaletteSelection(cmd) {
+    if (!aiInput) return;
+    aiInput.value = "/" + cmd.name + " ";
+    setInputHeight();
+    safeFocus(aiInput);
+    closePalette();
+  }
+
+  function updatePalette() {
+    if (!aiInput) return;
+    const v = aiInput.value;
+    if (!v.startsWith("/") || v.includes(" ") && !v.startsWith("/ ")) {
+      // Only show the palette while typing the command name itself, not
+      // once the user has moved on to typing arguments.
+      if (v.startsWith("/") && !v.slice(1).includes(" ")) {
+        // still typing command name, fall through
+      } else {
+        closePalette();
+        return;
+      }
+    }
+    if (!v.startsWith("/")) { closePalette(); return; }
+    const partial = v.slice(1).split(/\s+/)[0].toLowerCase();
+    const matches = SLASH_COMMANDS.filter(c => c.name.startsWith(partial));
+    renderPalette(matches);
+  }
+
   /* ── send ────────────────────────────────────────────────────────── */
 
   async function sendAI() {
@@ -369,6 +534,16 @@
 
     const prompt = aiInput?.value?.trim() || "";
     if (!prompt && !pendingFile) return;
+
+    closePalette();
+
+    // Slash commands run entirely client-side and never touch the AI
+    // backend — clear the input the same way a normal send does, but
+    // stop here instead of proceeding to the fetch call below.
+    if (prompt.startsWith("/") && tryRunSlashCommand(prompt)) {
+      if (aiInput) { aiInput.value = ""; aiInput.style.height = "auto"; }
+      return;
+    }
 
     isSending = true;
     if (aiSendBtn) aiSendBtn.disabled = true;
@@ -462,9 +637,31 @@
 
   /* ── input events ────────────────────────────────────────────────── */
 
-  on(aiInput, "input", setInputHeight);
+  on(aiInput, "input", () => { setInputHeight(); updatePalette(); });
 
   on(aiInput, "keydown", e => {
+    if (paletteEl) {
+      const items = paletteEl.querySelectorAll(".slash-palette-item");
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        paletteIndex = Math.min(paletteIndex + 1, items.length - 1);
+        items.forEach((it, i) => it.style.background = i === paletteIndex ? "var(--ai-surface, rgba(148,163,184,.08))" : "");
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        paletteIndex = Math.max(paletteIndex - 1, 0);
+        items.forEach((it, i) => it.style.background = i === paletteIndex ? "var(--ai-surface, rgba(148,163,184,.08))" : "");
+        return;
+      }
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+        e.preventDefault();
+        const partial = aiInput.value.slice(1).split(/\s+/)[0].toLowerCase();
+        const matches = SLASH_COMMANDS.filter(c => c.name.startsWith(partial));
+        if (matches[paletteIndex]) { applyPaletteSelection(matches[paletteIndex]); return; }
+      }
+      if (e.key === "Escape") { closePalette(); return; }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendAI();
