@@ -829,8 +829,9 @@ const CMDS=[
   {c:"/warn",    mod:true, fn:async(args,p)=>{
     const[target,...rest]=args.split(" ");const reason=rest.join(" ")||"No reason given";
     if(!target){showToast("Usage: /warn <username> [reason]");return;}
-    const{data:tgt}=await sb.from("profiles").select("id,username,warn_count").eq("username",target.replace(/^@/,"")).maybeSingle();
+    const{data:tgt}=await sb.from("profiles").select("id,username,warn_count,role").eq("username",target.replace(/^@/,"")).maybeSingle();
     if(!tgt){showToast("❌ User not found.");return;}
+    if(tgt.role==="admin"){showToast("❌ Cannot warn an admin.");return;}
     const newCount=(tgt.warn_count||0)+1;
     await sb.from("profiles").update({warn_count:newCount}).eq("id",tgt.id);
     // Auto-mute at 3 warnings (1 hour), auto-ban at 5
@@ -854,8 +855,9 @@ const CMDS=[
   {c:"/mute",    mod:true, fn:async(args,p)=>{
     const[target,mins,...rest]=args.split(" ");const reason=rest.join(" ")||"No reason given";
     if(!target||!mins||isNaN(parseInt(mins))){showToast("Usage: /mute <username> <minutes> [reason]");return;}
-    const{data:tgt}=await sb.from("profiles").select("id,username").eq("username",target.replace(/^@/,"")).maybeSingle();
+    const{data:tgt}=await sb.from("profiles").select("id,username,role").eq("username",target.replace(/^@/,"")).maybeSingle();
     if(!tgt){showToast("❌ User not found.");return;}
+    if(tgt.role==="admin"){showToast("❌ Cannot mute an admin.");return;}
     const muteUntil=new Date(Date.now()+parseInt(mins)*60*1000).toISOString();
     await sb.from("profiles").update({muted_until:muteUntil}).eq("id",tgt.id);
     await logAutomod(tgt.id,tgt.username,"mute",`${mins}m — ${reason}`,muteUntil);
@@ -896,21 +898,44 @@ const CMDS=[
   {c:"/promote", mod:true, fn:async(args,p)=>{
     if(p.role!=="admin"){showToast("❌ Only admins can promote.");return;}
     const target=args.trim().replace(/^@/,"");
-    await sb.from("profiles").update({role:"mod"}).eq("username",target);
-    await logAutomod(null,target,"promote",`by ${p.username}`);
+    if(!target){showToast("Usage: /promote <username>");return;}
+    const{data:tgt}=await sb.from("profiles").select("id,role").eq("username",target).maybeSingle();
+    if(!tgt){showToast("❌ User not found.");return;}
+    if(tgt.role==="mod"||tgt.role==="admin"){showToast(`❌ ${target} is already ${tgt.role}.`);return;}
+    await sb.from("profiles").update({role:"mod"}).eq("id",tgt.id);
+    await logAutomod(tgt.id,target,"promote",`by ${p.username}`);
     showToast("✅ Promoted "+target+" to mod");
   }},
   {c:"/demote",  mod:true, fn:async(args,p)=>{
     if(p.role!=="admin"){showToast("❌ Only admins can demote.");return;}
     const target=args.trim().replace(/^@/,"");
-    await sb.from("profiles").update({role:"user"}).eq("username",target);
-    await logAutomod(null,target,"demote",`by ${p.username}`);
+    if(!target){showToast("Usage: /demote <username>");return;}
+    const{data:tgt}=await sb.from("profiles").select("id,role").eq("username",target).maybeSingle();
+    if(!tgt){showToast("❌ User not found.");return;}
+    if(tgt.role!=="mod"){showToast(`❌ ${target} isn't a mod.`);return;}
+    await sb.from("profiles").update({role:"user"}).eq("id",tgt.id);
+    await logAutomod(tgt.id,target,"demote",`by ${p.username}`);
     showToast("✅ Demoted "+target);
   }},
   {c:"/announce",mod:true, fn:async(args,p,pay)=>{pay.text=`📢 **${args}**`;await insertMsg(pay);}},
   {c:"/delete",  mod:true, fn:async(args)=>{const id=parseInt(args);if(id)await deleteMsg(id);}},
 ];
 async function insertMsg(payload){
+  // BUG FIX: this previously only branched on channel/server and fell
+  // through to a bare `messages` insert otherwise — meaning a slash
+  // command run inside a DM (/me, /announce, /warn, /ban) inserted a row
+  // with no channel_id, server_id, OR dm_id set. That row then matched
+  // the "global lobby" query (which selects messages where all three are
+  // null), so the message didn't just fail to appear in the DM — it
+  // actually leaked into the public lobby feed. Now mirrors sendMessage()'s
+  // routing exactly: DMs go to the separate dm_messages table.
+  if(activeRoom.type==="dm"){
+    payload.dm_id=activeRoom.id;
+    const{error}=await sb.from("dm_messages").insert(payload);
+    if(error){console.error("insertMsg (dm) failed:",error);showToast("❌ Could not send message: "+error.message);return;}
+    await sb.from("direct_messages").update({updated_at:new Date().toISOString()}).eq("id",activeRoom.id);
+    return;
+  }
   if(activeRoom.type==="channel")payload.channel_id=activeRoom.id;else if(activeRoom.type==="server")payload.server_id=activeRoom.id;
   const{error}=await sb.from("messages").insert(payload);
   if(error){console.error("insertMsg failed:",error);showToast("❌ Could not send message: "+error.message);}
