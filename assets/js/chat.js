@@ -21,6 +21,7 @@ let activeServerId   = null;
 let pendingFile      = null;
 let replyingTo       = null;
 let realtimeChannel  = null;
+let presenceChan     = null; // promoted to module scope — loadMembers() needs real presence state, not just the online count
 let typingChannel    = null;
 let typingUsers      = {};
 let typingTimeouts   = {};
@@ -95,7 +96,7 @@ async function getProfile(uid){
   if(!uid)return{username:"Unknown",avatar_url:null,role:"user",banned:false,muted_until:null,warn_count:0};
   if(profileCache[uid])return profileCache[uid];
   try{
-    const{data}=await sb.from("profiles").select("username,avatar_url,role,tag,email,first_name,last_name,banned,muted_until,warn_count").eq("id",uid).single();
+    const{data}=await sb.from("profiles").select("id,username,avatar_url,role,tag,email,first_name,last_name,banned,muted_until,warn_count,current_activity,current_activity_updated_at").eq("id",uid).single();
     const p=data||{username:"Unknown",avatar_url:null,role:"user",banned:false,muted_until:null,warn_count:0};
     if(!p.username)(p.username=[p.first_name,p.last_name].filter(Boolean).join(" ")||"Unknown");
     p.warn_count=p.warn_count||0;
@@ -674,6 +675,15 @@ async function loadMembers(){
   const{data:mems}=await sb.from("server_members").select("user_id").eq("server_id",activeRoom.serverId);
   if(!mems||!mems.length){list.innerHTML=`<div style="padding:16px;font-size:13px;color:var(--dc-muted);">No members found.</div>`;return;}
   const profiles=await Promise.all(mems.map(m=>getProfile(m.user_id)));
+  // BUG FIX: this used to hardcode every member's status dot as "online"
+  // regardless of whether they actually were — now checks real presence
+  // state from the same channel the online-count badge already uses.
+  const onlineIds=presenceChan?new Set(Object.values(presenceChan.presenceState()).flat().map(p=>p.uid)):new Set();
+  // Activity is considered stale (and hidden) after 10 minutes with no
+  // update — covers the case where the desktop app crashed/was killed
+  // without a chance to clear current_activity on game exit.
+  const ACTIVITY_STALE_MS=10*60*1000;
+  const isActivityFresh=p=>p.current_activity&&p.current_activity_updated_at&&(Date.now()-new Date(p.current_activity_updated_at).getTime())<ACTIVITY_STALE_MS;
   const groups={Admin:[],Mod:[],Member:[]};
   profiles.forEach(p=>{ if(p.role==="admin")groups.Admin.push(p);else if(p.role==="mod")groups.Mod.push(p);else groups.Member.push(p); });
   Object.entries(groups).forEach(([role,ps])=>{
@@ -683,9 +693,18 @@ async function loadMembers(){
       const item=document.createElement("div");item.className="member-item";
       const av=document.createElement("div");av.className="mi-av";
       if(p.avatar_url){const img=document.createElement("img");img.src=p.avatar_url;av.appendChild(img);}else av.textContent=getInitials(p.username);
-      const name=document.createElement("span");name.textContent=p.username||"User";
-      const dot=document.createElement("div");dot.className="mi-status online";
-      item.appendChild(av);item.appendChild(name);item.appendChild(dot);
+      const nameWrap=document.createElement("div");nameWrap.style.cssText="display:flex;flex-direction:column;min-width:0;flex:1;";
+      const name=document.createElement("span");name.textContent=p.username||"User";name.style.cssText="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+      nameWrap.appendChild(name);
+      if(isActivityFresh(p)){
+        const activity=document.createElement("span");
+        activity.textContent="🎮 Playing "+p.current_activity;
+        activity.style.cssText="font-size:11px;color:var(--dc-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+        nameWrap.appendChild(activity);
+      }
+      const online=onlineIds.has(p.id);
+      const dot=document.createElement("div");dot.className="mi-status"+(online?" online":"");
+      item.appendChild(av);item.appendChild(nameWrap);item.appendChild(dot);
       item.addEventListener("click",()=>showProfilePopup(mems[profiles.indexOf(p)]?.user_id,item));
       list.appendChild(item);
     });
@@ -1107,9 +1126,12 @@ document.getElementById("jm-join")?.addEventListener("click",async()=>{
 ══════════════════════════════════════════════════════ */
 function startPresence(){
   if(!currentUserId)return;
-  const presenceChan=sb.channel("presence-global",{config:{presence:{key:currentUserId}}});
+  presenceChan=sb.channel("presence-global",{config:{presence:{key:currentUserId}}});
   presenceChan
-    .on("presence",{event:"sync"},()=>{document.getElementById("onlineCount").textContent=Object.keys(presenceChan.presenceState()).length;})
+    .on("presence",{event:"sync"},()=>{
+      document.getElementById("onlineCount").textContent=Object.keys(presenceChan.presenceState()).length;
+      if(!document.getElementById("members-panel")?.classList.contains("hidden"))loadMembers(); // live-refresh online dots + activity while the panel is open
+    })
     .subscribe(async s=>{if(s==="SUBSCRIBED")await presenceChan.track({uid:currentUserId,username:currentProfile?.username});});
 }
 
