@@ -18,9 +18,49 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-SCZB3M2PNX"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-SCZB3M2PNX');</script>
   <style>
+    /* ══════════════════════════════════════════════════════════════════
+       360 AI — visual overhaul
+       Previously: hardcoded blue→purple (#3b82f6→#8b5cf6) regardless of
+       theme, and a plain system-ui override that dropped the site's real
+       display face — so this page visually broke away from the rest of
+       360 (Ocean/Midnight/Sunset/Mint/Neon/Mono all look identical here
+       before this pass). Now every accent derives from --a/--a2, which
+       main.css already sets per theme, and the site's actual typeface
+       (DidactGothic + Inter) is restored.
+
+       Signature: one consistent "AI presence" mark — a two-tone --a/--a2
+       gradient ring with a soft glow — used at three scales: the welcome
+       logo, the assistant avatar, and the thinking indicator (replacing
+       the generic three-dot bounce), instead of two unrelated visual
+       languages for the same idea.
+    ══════════════════════════════════════════════════════════════════ */
+
+    :root {
+      --ai-radius-sm: 8px;
+      --ai-radius-md: 12px;
+      --ai-radius-lg: 18px;
+      --ai-surface: color-mix(in srgb, var(--txt) 5%, transparent);
+      --ai-surface-hover: color-mix(in srgb, var(--txt) 9%, transparent);
+      --ai-glow: color-mix(in srgb, var(--a) 35%, transparent);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+    }
+
     /* ── Reset & shell ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
+    html, body {
+      height: 100%;
+      font-family: "DidactGothic", "Inter", system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--a);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
 
     .ai-shell {
       display: flex;
@@ -30,15 +70,15 @@
       color: var(--txt);
     }
 
-    /* ── Sidebar ── */
+    /* ── Conversation sidebar ── */
     #ai-sidebar {
-      width: 240px;
+      width: 248px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      background: rgba(148,163,184,.06);
+      background: color-mix(in srgb, var(--txt) 3%, var(--bg));
       border-right: 1px solid var(--br);
-      transition: width .22s ease;
+      transition: width .24s cubic-bezier(.4,0,.2,1);
       overflow: hidden;
     }
     #ai-sidebar.collapsed { width: 0; border-right: none; }
@@ -47,64 +87,76 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 12px 10px;
+      padding: 16px 14px 12px;
       border-bottom: 1px solid var(--br);
       flex-shrink: 0;
     }
     .sb-logo {
       font-size: 13px;
       font-weight: 700;
-      letter-spacing: .03em;
-      opacity: .9;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--mut);
       white-space: nowrap;
     }
     #new-chat-btn {
-      padding: 5px 10px;
-      border-radius: 8px;
+      padding: 6px 12px;
+      border-radius: var(--ai-radius-sm);
       border: 1px solid var(--br);
-      background: rgba(59,130,246,.12);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--a) 14%, transparent), color-mix(in srgb, var(--a2) 14%, transparent));
       color: var(--a);
       font-size: 12px;
+      font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
       flex-shrink: 0;
+      transition: filter .15s;
     }
-    #new-chat-btn:hover { background: rgba(59,130,246,.22); }
+    #new-chat-btn:hover { filter: brightness(1.15); }
 
     #conv-list {
       flex: 1;
       overflow-y: auto;
-      padding: 8px 6px;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
     .conv-item {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 7px 8px;
-      border-radius: 8px;
+      gap: 8px;
+      padding: 8px 10px 8px 12px;
+      border-radius: var(--ai-radius-sm);
       cursor: pointer;
-      font-size: 12px;
-      opacity: .8;
+      font-size: 12.5px;
+      color: var(--mut);
       position: relative;
+      border-left: 2px solid transparent;
+      transition: background .12s, color .12s, border-color .12s;
     }
-    .conv-item:hover { background: rgba(148,163,184,.12); opacity: 1; }
-    .conv-item.active { background: rgba(59,130,246,.12); opacity: 1; }
+    .conv-item:hover { background: var(--ai-surface); color: var(--txt); }
+    .conv-item.active {
+      background: color-mix(in srgb, var(--a) 10%, transparent);
+      color: var(--txt);
+      border-left-color: var(--a);
+    }
     .conv-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .conv-del {
       display: none;
       border: none;
       background: transparent;
-      color: var(--txt);
-      opacity: .5;
+      color: inherit;
+      opacity: .55;
       cursor: pointer;
       font-size: 11px;
-      padding: 2px 4px;
-      border-radius: 4px;
+      padding: 3px 5px;
+      border-radius: 5px;
       flex-shrink: 0;
     }
     .conv-item:hover .conv-del { display: block; }
-    .conv-del:hover { opacity: 1; color: #ef4444; }
-    .conv-empty { font-size: 12px; opacity: .5; padding: 12px 8px; }
+    .conv-del:hover { opacity: 1; color: #ef4444; background: rgba(239,68,68,.12); }
+    .conv-empty { font-size: 12px; color: var(--mut); opacity: .7; padding: 14px 10px; line-height: 1.5; }
 
     /* ── Main area ── */
     .ai-main {
@@ -117,13 +169,14 @@
 
     /* ── Top bar ── */
     .ai-topbar {
-      height: 48px;
+      height: 52px;
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 0 14px;
+      padding: 0 16px;
       border-bottom: 1px solid var(--br);
-      background: rgba(10,12,20,.92);
+      background: color-mix(in srgb, var(--bg) 92%, transparent);
+      backdrop-filter: blur(10px);
       flex-shrink: 0;
       position: relative;
       z-index: 10;
@@ -135,9 +188,11 @@
       cursor: pointer;
       font-size: 16px;
       opacity: .6;
-      padding: 4px 6px;
-      border-radius: 6px;
+      padding: 5px 7px;
+      border-radius: var(--ai-radius-sm);
+      transition: opacity .12s, background .12s;
     }
+    #sidebar-toggle:hover { opacity: 1; background: var(--ai-surface); }
     /* Give the main.js sidebar-toggle room — it sits at fixed top:10px left:10px z-index:70 */
     .ai-topbar { padding-left: 80px; }
     @media (max-width: 600px) { .ai-topbar { padding-left: 60px; } }
@@ -151,24 +206,26 @@
         position: fixed;
         top: 0; left: 0; bottom: 0;
         z-index: 60;
-        width: 240px;
-        box-shadow: 2px 0 24px rgba(0,0,0,.35);
+        width: 248px;
+        box-shadow: 4px 0 32px rgba(0,0,0,.4);
       }
       #ai-sidebar.collapsed { width: 0; box-shadow: none; }
       .ai-shell { overflow: visible; }
     }
 
     .ai-topbar-title {
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 14.5px;
+      font-weight: 700;
+      letter-spacing: .01em;
       flex: 1;
     }
     .ai-model-badge {
       font-size: 11px;
-      padding: 3px 8px;
+      font-weight: 600;
+      padding: 4px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(59,130,246,.35);
-      background: rgba(59,130,246,.08);
+      border: 1px solid color-mix(in srgb, var(--a) 35%, transparent);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--a) 10%, transparent), color-mix(in srgb, var(--a2) 10%, transparent));
       color: var(--a);
       white-space: nowrap;
     }
@@ -182,17 +239,17 @@
     #ai-output {
       flex: 1;
       overflow-y: auto;
-      padding: 20px 0;
+      padding: 24px 0 8px;
       scroll-behavior: smooth;
     }
 
     .ai-bubble {
       max-width: 760px;
-      margin: 0 auto 4px;
-      padding: 10px 16px;
-      animation: fadeUp .18s ease;
+      margin: 0 auto 6px;
+      padding: 10px 20px;
+      animation: fadeUp .22s cubic-bezier(.16,1,.3,1);
     }
-    @keyframes fadeUp { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+    @keyframes fadeUp { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
 
     /* User bubble */
     .ai-bubble.user {
@@ -201,10 +258,10 @@
       align-items: flex-end;
     }
     .ai-bubble.user .bubble-inner {
-      background: rgba(59,130,246,.15);
-      border: 1px solid rgba(59,130,246,.25);
-      border-radius: 16px 16px 4px 16px;
-      padding: 10px 14px;
+      background: color-mix(in srgb, var(--a) 13%, transparent);
+      border: 1px solid color-mix(in srgb, var(--a) 22%, transparent);
+      border-radius: var(--ai-radius-lg) var(--ai-radius-lg) 4px var(--ai-radius-lg);
+      padding: 11px 15px;
       font-size: 14px;
       max-width: 80%;
       word-break: break-word;
@@ -212,38 +269,44 @@
     }
     .ai-bubble.user .attached-preview {
       max-width: 260px;
-      border-radius: 10px;
+      border-radius: var(--ai-radius-md);
       overflow: hidden;
       margin-bottom: 6px;
+      border: 1px solid var(--br);
     }
     .ai-bubble.user .attached-preview img {
       width: 100%;
       display: block;
-      border-radius: 10px;
+      border-radius: var(--ai-radius-md);
     }
     .ai-bubble.user .attached-file-link {
       font-size: 12px;
-      background: rgba(148,163,184,.12);
+      background: var(--ai-surface);
       border: 1px solid var(--br);
-      border-radius: 8px;
-      padding: 5px 10px;
+      border-radius: var(--ai-radius-sm);
+      padding: 6px 11px;
       margin-bottom: 6px;
       color: var(--a);
       text-decoration: none;
       display: inline-block;
+      font-weight: 600;
     }
 
     /* Assistant bubble */
     .ai-bubble.assistant {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       align-items: flex-start;
     }
+    /* The "AI presence" mark — reused at 3 scales (see .wl-logo, .ai-avatar,
+       .thinking) so the assistant's identity reads as one consistent motif
+       instead of a flat gradient square + unrelated dot spinner. */
     .ai-avatar {
       width: 28px;
       height: 28px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--a), var(--a2));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--txt) 6%, transparent), 0 2px 10px var(--ai-glow);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -253,70 +316,82 @@
     }
     .ai-bubble.assistant .bubble-inner {
       flex: 1;
-      font-size: 14px;
-      line-height: 1.65;
+      font-size: 14.5px;
+      line-height: 1.7;
       min-width: 0;
+      letter-spacing: .001em;
     }
 
     /* Markdown styles inside assistant bubble */
     .bubble-inner h1, .bubble-inner h2, .bubble-inner h3 {
-      margin: 16px 0 8px;
-      font-weight: 600;
+      margin: 18px 0 8px;
+      font-weight: 700;
       line-height: 1.3;
+      letter-spacing: -.01em;
     }
-    .bubble-inner h1 { font-size: 1.3em; }
-    .bubble-inner h2 { font-size: 1.15em; }
+    .bubble-inner h1 { font-size: 1.32em; }
+    .bubble-inner h2 { font-size: 1.16em; }
     .bubble-inner h3 { font-size: 1.05em; }
-    .bubble-inner p { margin: 6px 0; }
-    .bubble-inner ul, .bubble-inner ol { padding-left: 20px; margin: 6px 0; }
-    .bubble-inner li { margin: 3px 0; }
+    .bubble-inner p { margin: 7px 0; }
+    .bubble-inner ul, .bubble-inner ol { padding-left: 22px; margin: 7px 0; }
+    .bubble-inner li { margin: 4px 0; }
     .bubble-inner strong { font-weight: 700; }
     .bubble-inner em { font-style: italic; }
-    .bubble-inner a { color: var(--a); text-decoration: underline; }
-    .bubble-inner hr { border: none; border-top: 1px solid var(--br); margin: 14px 0; }
-    .bubble-inner table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
-    .bubble-inner th, .bubble-inner td { border: 1px solid var(--br); padding: 6px 10px; text-align: left; }
-    .bubble-inner th { background: rgba(148,163,184,.1); font-weight: 600; }
-    .bubble-inner blockquote { border-left: 3px solid var(--a); margin: 10px 0; padding: 4px 12px; opacity: .8; }
+    .bubble-inner a { color: var(--a); text-decoration: underline; text-underline-offset: 2px; }
+    .bubble-inner hr { border: none; border-top: 1px solid var(--br); margin: 16px 0; }
+    .bubble-inner table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+    .bubble-inner th, .bubble-inner td { border: 1px solid var(--br); padding: 7px 11px; text-align: left; }
+    .bubble-inner th { background: var(--ai-surface); font-weight: 700; }
+    .bubble-inner blockquote {
+      border-left: 3px solid var(--a);
+      margin: 12px 0;
+      padding: 6px 14px;
+      opacity: .82;
+      background: color-mix(in srgb, var(--a) 5%, transparent);
+      border-radius: 0 var(--ai-radius-sm) var(--ai-radius-sm) 0;
+    }
 
     /* Inline code */
     .bubble-inner code:not(pre code) {
-      background: rgba(148,163,184,.15);
-      border: 1px solid rgba(148,163,184,.2);
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-size: .88em;
+      background: var(--ai-surface);
+      border: 1px solid var(--br);
+      border-radius: 5px;
+      padding: 1px 6px;
+      font-size: .87em;
       font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      color: var(--a);
     }
 
     /* Code blocks */
     .code-block-wrap {
       position: relative;
-      margin: 10px 0;
-      border-radius: 10px;
+      margin: 12px 0;
+      border-radius: var(--ai-radius-md);
       overflow: hidden;
-      border: 1px solid rgba(148,163,184,.15);
+      border: 1px solid var(--br);
     }
     .code-block-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 12px;
-      background: rgba(15,23,42,.6);
+      padding: 7px 13px;
+      background: linear-gradient(90deg, color-mix(in srgb, var(--a) 8%, var(--bg)), color-mix(in srgb, var(--a2) 5%, var(--bg)));
       font-size: 11px;
-      opacity: .8;
+      border-bottom: 1px solid var(--br);
     }
-    .code-block-lang { font-family: monospace; letter-spacing: .05em; }
+    .code-block-lang { font-family: monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--mut); font-weight: 600; font-size: 10.5px; }
     .code-copy-btn {
       border: none;
-      background: rgba(148,163,184,.15);
+      background: var(--ai-surface);
       color: inherit;
       font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 5px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 6px;
       cursor: pointer;
+      transition: background .12s;
     }
-    .code-copy-btn:hover { background: rgba(148,163,184,.3); }
+    .code-copy-btn:hover { background: var(--ai-surface-hover); }
     .code-block-wrap pre {
       margin: 0 !important;
       border-radius: 0 !important;
@@ -325,37 +400,45 @@
     }
     .code-block-wrap pre code { font-size: 13px !important; }
 
-    /* Thinking spinner */
+    /* Thinking indicator — same two-tone ring as .ai-avatar/.wl-logo,
+       gently pulsing, instead of a generic three-dot bounce unrelated to
+       the rest of the assistant's visual identity. */
     .thinking {
       display: flex;
-      gap: 5px;
       align-items: center;
-      padding: 4px 0;
-      opacity: .6;
+      gap: 9px;
+      padding: 5px 0;
+      color: var(--mut);
+      font-size: 13px;
     }
-    .thinking span {
-      width: 6px; height: 6px;
-      background: var(--a);
-      border-radius: 50%;
-      animation: bounce .9s infinite;
+    .thinking::before {
+      content: '';
+      width: 15px;
+      height: 15px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--a), var(--a2));
+      animation: pulseRing 1.1s ease-in-out infinite;
+      flex-shrink: 0;
     }
-    .thinking span:nth-child(2) { animation-delay: .15s; }
-    .thinking span:nth-child(3) { animation-delay: .3s; }
-    @keyframes bounce { 0%,80%,100%{transform:scale(.8)} 40%{transform:scale(1.2)} }
+    .thinking span { display: none; } /* legacy dot markup, superseded by ::before ring */
+    @keyframes pulseRing {
+      0%, 100% { opacity: .45; transform: scale(.85); }
+      50% { opacity: 1; transform: scale(1); }
+    }
 
     /* ── Image paste drop zone ── */
     .ai-main.drag-over #ai-output::after {
       content: '📎 Drop to attach';
       position: fixed;
       inset: 0;
-      background: rgba(59,130,246,.12);
+      background: color-mix(in srgb, var(--a) 10%, transparent);
       border: 2px dashed var(--a);
-      border-radius: 12px;
+      border-radius: var(--ai-radius-md);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 18px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--a);
       z-index: 50;
       pointer-events: none;
@@ -364,8 +447,8 @@
     /* ── Input area ── */
     .ai-input-area {
       border-top: 1px solid var(--br);
-      padding: 10px 14px 12px;
-      background: rgba(255,255,255,.02);
+      padding: 12px 16px 14px;
+      background: color-mix(in srgb, var(--txt) 1.5%, transparent);
       flex-shrink: 0;
     }
 
@@ -374,10 +457,10 @@
       display: none;
       align-items: center;
       gap: 8px;
-      padding: 6px 10px;
-      background: rgba(59,130,246,.08);
-      border: 1px solid rgba(59,130,246,.2);
-      border-radius: 8px;
+      padding: 7px 11px;
+      background: color-mix(in srgb, var(--a) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--a) 20%, transparent);
+      border-radius: var(--ai-radius-sm);
       margin-bottom: 8px;
       font-size: 12px;
       max-width: 760px;
@@ -387,9 +470,13 @@
     #file-preview.show { display: flex; }
     #fp-thumb img { max-height: 44px; border-radius: 6px; display: block; }
     #fp-thumb .fp-icon { font-size: 22px; }
-    #fp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .8; }
+    #fp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--mut); }
     #fp-cancel { border: none; background: transparent; color: var(--txt); opacity: .5; cursor: pointer; font-size: 14px; }
     #fp-cancel:hover { opacity: 1; }
+
+    /* Slash command palette — item hover (inline styles handle the rest,
+       :hover can't be expressed inline) */
+    .slash-palette-item:hover { background: var(--ai-surface-hover, rgba(148,163,184,.12)) !important; }
 
     .ai-input-row {
       display: flex;
@@ -397,15 +484,15 @@
       gap: 8px;
       max-width: 760px;
       margin: 0 auto;
-      background: rgba(148,163,184,.08);
+      background: var(--ai-surface);
       border: 1px solid var(--br);
-      border-radius: 14px;
-      padding: 8px 10px;
-      transition: border-color .15s;
+      border-radius: var(--ai-radius-lg);
+      padding: 9px 11px;
+      transition: border-color .15s, box-shadow .15s;
     }
     .ai-input-row:focus-within {
-      border-color: rgba(59,130,246,.5);
-      box-shadow: 0 0 0 2px rgba(59,130,246,.08);
+      border-color: color-mix(in srgb, var(--a) 55%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 10%, transparent);
     }
     #ai-input {
       flex: 1;
@@ -413,13 +500,15 @@
       outline: none;
       background: transparent;
       color: var(--txt);
-      font-size: 14px;
+      font-size: 14.5px;
+      font-family: inherit;
       resize: none;
       max-height: 200px;
       overflow-y: auto;
       line-height: 1.5;
-      padding: 2px 0;
+      padding: 3px 2px;
     }
+    #ai-input::placeholder { color: var(--mut); }
     .ai-input-btns {
       display: flex;
       align-items: center;
@@ -433,15 +522,16 @@
       opacity: .55;
       cursor: pointer;
       font-size: 17px;
-      padding: 4px;
-      border-radius: 6px;
+      padding: 5px;
+      border-radius: var(--ai-radius-sm);
+      transition: opacity .12s, background .12s;
     }
-    #ai-attach-btn:hover { opacity: 1; background: rgba(148,163,184,.12); }
+    #ai-attach-btn:hover { opacity: 1; background: var(--ai-surface); }
     #ai-send-btn {
       border: none;
-      background: linear-gradient(135deg, var(--a), #8b5cf6);
+      background: linear-gradient(135deg, var(--a), var(--a2));
       color: #fff;
-      border-radius: 9px;
+      border-radius: 10px;
       width: 34px;
       height: 34px;
       cursor: pointer;
@@ -449,16 +539,18 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: opacity .15s;
+      box-shadow: 0 2px 10px var(--ai-glow);
+      transition: transform .12s, box-shadow .12s, opacity .15s;
     }
-    #ai-send-btn:hover { opacity: .88; }
-    #ai-send-btn:disabled { opacity: .35; cursor: default; }
+    #ai-send-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px var(--ai-glow); }
+    #ai-send-btn:disabled { opacity: .35; cursor: default; transform: none; box-shadow: none; }
 
     .ai-input-hint {
       text-align: center;
       font-size: 11px;
-      opacity: .4;
-      margin-top: 6px;
+      color: var(--mut);
+      opacity: .7;
+      margin-top: 7px;
     }
 
     /* ── Welcome screen ── */
@@ -468,52 +560,60 @@
       align-items: center;
       justify-content: center;
       height: 100%;
-      gap: 12px;
+      gap: 14px;
       text-align: center;
       padding: 24px;
-      opacity: .9;
     }
     .wl-logo {
-      width: 56px; height: 56px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      width: 58px; height: 58px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--a), var(--a2));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--txt) 6%, transparent), 0 8px 28px var(--ai-glow);
       display: flex; align-items: center; justify-content: center;
-      font-size: 26px;
+      font-size: 27px;
       margin-bottom: 4px;
     }
-    .wl-title { font-size: 22px; font-weight: 700; }
-    .wl-sub { font-size: 14px; opacity: .6; max-width: 340px; line-height: 1.6; }
+    .wl-title { font-size: 23px; font-weight: 700; letter-spacing: -.01em; }
+    .wl-sub { font-size: 14px; color: var(--mut); max-width: 360px; line-height: 1.65; }
     .wl-chips {
       display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
-      margin-top: 6px; max-width: 460px;
+      margin-top: 8px; max-width: 480px;
     }
     .wl-chip {
-      padding: 7px 13px;
-      border-radius: 999px;
+      padding: 8px 14px;
+      border-radius: var(--ai-radius-md);
       border: 1px solid var(--br);
-      background: rgba(148,163,184,.07);
-      font-size: 12px;
+      background: var(--ai-surface);
+      color: var(--txt);
+      font-size: 12.5px;
+      font-weight: 500;
       cursor: pointer;
-      transition: .15s;
+      transition: background .15s, border-color .15s, color .15s, transform .15s;
     }
-    .wl-chip:hover { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.35); color: var(--a); }
+    .wl-chip:hover {
+      background: color-mix(in srgb, var(--a) 10%, transparent);
+      border-color: color-mix(in srgb, var(--a) 35%, transparent);
+      color: var(--a);
+      transform: translateY(-1px);
+    }
 
     /* ── Toast ── */
     .ai-toast {
       position: fixed;
-      bottom: 80px; left: 50%;
+      bottom: 84px; left: 50%;
       transform: translateX(-50%);
-      background: rgba(15,23,42,.95);
-      color: #f5f5f5;
-      padding: 7px 16px;
+      background: color-mix(in srgb, var(--txt) 92%, var(--bg));
+      color: var(--bg);
+      padding: 8px 18px;
       border-radius: 999px;
       font-size: 13px;
-      border: 1px solid rgba(255,255,255,.1);
+      font-weight: 600;
       pointer-events: none;
-      animation: toastIn .2s ease;
+      animation: toastIn .22s cubic-bezier(.16,1,.3,1);
       z-index: 999;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
     }
-    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   </style>
 </head>
 <body class="dark">
