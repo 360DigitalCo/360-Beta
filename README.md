@@ -1,5 +1,5 @@
 # 360
-![Version](https://img.shields.io/badge/version-3.0.0-blue) [![Windows](https://img.shields.io/badge/Windows-Supported-0078D6?logo=windows&logoColor=white)](#)
+![Version](https://img.shields.io/badge/version-3.6.0-blue) [![Windows](https://img.shields.io/badge/Windows-Supported-0078D6?logo=windows&logoColor=white)](#)
 [![Linux](https://img.shields.io/badge/Linux-Supported-FCC624?logo=linux&logoColor=black)](#)
 [![Web](https://img.shields.io/badge/Web-Supported-4285F4?logo=google-chrome&logoColor=white)](#)
 [![Android](https://img.shields.io/badge/Android-Supported-3DDC84?logo=android&logoColor=white)](#) 
