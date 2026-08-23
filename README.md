@@ -44,7 +44,7 @@ With many search engines and browsers losing trust from core users, this is a gr
 ## Installation
 
 ### Web
-Just visit [360-search.com](https://360-search.com) — no install needed.
+Just visit [beta.360-search.com](https://beta.360-search.com) — no install needed.
 
 ### Windows
 1. Download `360 Setup 3.0.0.exe` from [Releases](https://github.com/360-By-360Digital/360/releases)
